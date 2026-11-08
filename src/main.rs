@@ -7,7 +7,8 @@
 //! - `profile` + `devices/`: per-model data. `i18n` + `locales/`: texts, read at runtime.
 //!
 //! Flags: `--open` (show the panel at start), `--pinned` (does not close on focus loss),
-//! `--snapshot <dir>` (render the screens to PNGs), `--lang <code>` (e.g. en, pt-BR).
+//! `--snapshot <dir>` (render the screens to PNGs), `--lang <code>` (e.g. en, pt-BR),
+//! `--debug` (log every Bluetooth packet to stderr).
 
 mod app;
 mod bluetooth;
@@ -33,6 +34,7 @@ fn main() {
     let has = |flag: &str| args.iter().any(|a| a == flag);
     let value = |flag: &str| args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).map(String::as_str);
     i18n::init(value("--lang"));
+    bluetooth::DEBUG.store(has("--debug"), std::sync::atomic::Ordering::Relaxed);
     let profiles = profile::load_all();
     if has("--snapshot") {
         return snapshot::run(value("--snapshot").unwrap_or("."), profiles);

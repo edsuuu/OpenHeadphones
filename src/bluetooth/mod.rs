@@ -5,6 +5,7 @@ mod link;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use btleplug::api::{Central, Manager as _, Peripheral as _, RetrievePeripheralsOptions, ScanFilter};
@@ -28,6 +29,16 @@ impl Bluetooth {
 }
 
 type Emit = Arc<dyn Fn(String, DeviceState) + Send + Sync>;
+
+/// `--debug`: logs every packet to and from the devices (stderr).
+pub static DEBUG: AtomicBool = AtomicBool::new(false);
+
+fn log_packet(id: &str, arrow: &str, data: &[u8]) {
+    if DEBUG.load(Ordering::Relaxed) {
+        let hex: Vec<String> = data.iter().map(|b| format!("{b:02x}")).collect();
+        eprintln!("[bluetooth] {id} {arrow} {}", hex.join(" "));
+    }
+}
 
 /// Starts the Bluetooth thread; `emit(id, state)` on every change of a device whose name starts
 /// with one of `name_prefixes` (from the device profiles).
@@ -196,14 +207,19 @@ async fn session(
     loop {
         tokio::select! {
             n = notifications.next() => match n {
-                Some(data) => if jbl::apply(state, &data) {
-                    emit(id.to_string(), state.clone());
-                },
+                Some(data) => {
+                    log_packet(id, "<-", &data);
+                    if jbl::apply(state, &data) {
+                        emit(id.to_string(), state.clone());
+                    }
+                }
                 None => return Ok(()),
             },
             c = rx.recv() => match c {
                 Some(c) => {
-                    link.send(&jbl::encode(&c)).await?;
+                    let packet = jbl::encode(&c);
+                    log_packet(id, "->", &packet);
+                    link.send(&packet).await?;
                     if let Some(q) = jbl::follow_up(&c) {
                         link.send(q).await?;
                     }
