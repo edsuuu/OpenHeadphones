@@ -114,7 +114,7 @@ confirm = "Confirm"
 
 [setting]
 smart_audio = "Smart Audio & Video"
-smart_audio_hint = "Audio: better quality; Video: less delay"
+smart_audio_hint = "Trades sound quality for lower delay"
 spatial = "Spatial sound"
 spatial_hint = "Sound around you, not inside your head"
 spatial_mode = "Spatial sound type"
@@ -154,7 +154,7 @@ factory_reset = "Factory reset"
 factory_reset_confirm = "Erases every setting and the pairings."
 
 [option]
-normal = "Normal"
+off = "Off"
 audio = "Audio"
 video = "Video"
 movie = "Movie"
