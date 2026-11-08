@@ -50,8 +50,8 @@ actions = [
 settings = [
     # Smart Audio & Video: AAC, SBC, latency presets (product_list.json "smartAudioVideo")
     { name = "smart_audio", section = "audio", kind = "choice", register = "smart_switch", width = 2, options = [
-        { name = "off", values = [256, 46, 280] },
-        { name = "audio", values = [197, 46, 280] },
+        { name = "normal", values = [197, 46, 280] },
+        { name = "audio", values = [256, 46, 280] },
         { name = "video", values = [197, 46, 120] },
     ] },
     # [on, type]; picking a type turns it on, like the app
