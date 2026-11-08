@@ -103,10 +103,9 @@ final class Model: ObservableObject {
     func profile(_ s: DeviceState?) -> Profile { s.flatMap { Profile.find(profiles, productId: $0.productId, name: $0.name) } ?? Profile() }
     var profile: Profile { profile(state) }
 
-    /// The model's photo in the device's color; with no device, the first model that has one.
-    func photo(_ s: DeviceState?) -> NSImage? {
-        let p = s.map(profile) ?? profiles.first { $0.imageDefault != nil }
-        guard let url = p?.image(color: s?.color) else { return nil }
+    /// The model's photo in the device's color (nil: the system's headphones symbol).
+    func photo(_ s: DeviceState) -> NSImage? {
+        guard let url = profile(s).image(color: s.color) else { return nil }
         if let cached = photos[url] { return cached }
         let image = NSImage(contentsOf: url)
         photos[url] = image
@@ -239,6 +238,15 @@ final class Model: ObservableObject {
     func value(_ s: Setting) -> [UInt8]? { s.register.flatMap { state?.registers[$0] } }
     func byte(_ s: Setting) -> UInt8? { value(s)?[at: s.byte] }
 
+    /// What the device has: once it answered the feature request (the last one asked at connect),
+    /// a row it never gave a value for is a feature it lacks.
+    // ponytail: "answered" = a feature other than the batteries came (the earbuds also send those alone);
+    // an answer slower than the feature request shows its row late, which is fine
+    func shown(_ s: Setting) -> Bool {
+        let answered = state?.registers.keys.contains { if case .feature(let id) = $0 { !(0x1A...0x1C).contains(id) } else { false } } ?? false
+        return s.kind == .button || value(s) != nil || !answered
+    }
+
     /// Connected, read, and its `when` switch is on (or it has none).
     func live(_ s: Setting) -> Bool {
         guard connected, s.kind == .button || value(s) != nil else { return false }
@@ -340,7 +348,7 @@ struct Photo: View {
             if let image {
                 Image(nsImage: image).resizable().interpolation(.high).scaledToFit()
             } else {
-                Image(systemName: "earbuds").resizable().scaledToFit().foregroundStyle(ink2).padding(size * 0.22)
+                Image(systemName: "headphones").resizable().scaledToFit().foregroundStyle(ink2).padding(size * 0.22)
             }
         }
         .frame(width: size, height: size)
@@ -624,7 +632,7 @@ struct ListPage: View {
                 VStack(spacing: 10) {
                     ZStack {
                         Rings(count: 3, from: 30, to: 110, speed: 0.55, color: Color(hex: 0xFF9244))
-                        Photo(image: m.photo(nil), size: 84)
+                        Photo(image: nil, size: 84)
                     }
                     .frame(height: 220)
                     Text(t("list.searching")).font(.system(size: 14, weight: .semibold)).foregroundStyle(ink)
@@ -982,12 +990,12 @@ struct SettingsTab: View {
     var body: some View {
         let all = m.profile.settings
         // a section: its title, then its rows in one card
-        let sections = all.indices.reduce(into: [[Int]]()) { out, i in
+        let sections = all.indices.filter { m.shown(all[$0]) }.reduce(into: [[Int]]()) { out, i in
             if let last = out.last?.last, all[last].section == all[i].section { out[out.count - 1].append(i) } else { out.append([i]) }
         }
         VStack(spacing: 10) {
             ForEach(sections, id: \.self) { rows in
-                SectionTitle(text: t("settings.\(all[rows[0]].section)")).padding(.top, rows[0] > 0 ? 6 : 0)
+                SectionTitle(text: t("settings.\(all[rows[0]].section)")).padding(.top, rows[0] != sections[0][0] ? 6 : 0)
                 Card {
                     ForEach(rows, id: \.self) { i in
                         if i != rows[0] { Hairline() }

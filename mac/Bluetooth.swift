@@ -42,6 +42,7 @@ final class Bluetooth: NSObject, CBCentralManagerDelegate {
     private func wanted(_ name: String) -> Bool { prefixes.contains { name.hasPrefix($0) } }
 
     func centralManagerDidUpdateState(_ c: CBCentralManager) {
+        if debug { log("[bluetooth] adapter state \(c.state.rawValue) (5 = on, 3 = no permission)") }
         switch c.state {
         case .poweredOn:
             guard timer == nil else { return }
@@ -68,6 +69,7 @@ final class Bluetooth: NSObject, CBCentralManagerDelegate {
         // macOS hands out a new one after a while), so the id would list them twice
         var found: [String: [CBPeripheral]] = [:]
         for (p, name) in candidates() { found[name, default: []].append(p) }
+        if debug { log("[bluetooth] round \(round): \(found.mapValues(\.count)), sessions \(sessions.keys.sorted())") }
         for (name, ps) in found {
             // failed: next round, not 10 s later (right after connecting for audio the headphones
             // can drop the first BLE link)
