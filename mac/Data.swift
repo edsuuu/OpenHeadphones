@@ -160,17 +160,15 @@ struct TomlReader {
 
 // MARK: - Data folder
 
-/// The first folder with `devices/`, from the program's folder upward (the repo root in a dev build).
+/// The first folder with `devices/`: the .app's Resources, then from the program's folder upward
+/// (the repo root in a dev build).
 let dataRoot: URL? = {
-    var dir = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
-    while dir.path != "/" {
-        dir.deleteLastPathComponent()
+    let exe = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
+    let up = sequence(first: exe.deletingLastPathComponent()) { $0.path == "/" ? nil : $0.deletingLastPathComponent() }
+    return ([Bundle.main.resourceURL].compactMap { $0 } + up).first { dir in
         var isDir: ObjCBool = false
-        if FileManager.default.fileExists(atPath: dir.appendingPathComponent("devices").path, isDirectory: &isDir), isDir.boolValue {
-            return dir
-        }
+        return FileManager.default.fileExists(atPath: dir.appendingPathComponent("devices").path, isDirectory: &isDir) && isDir.boolValue
     }
-    return nil
 }()
 
 // MARK: - Texts
@@ -427,6 +425,8 @@ func dataSelfTest() {
     check(smart?.optionBytes(0).count == 6 && smart?.currentOption(hex("c5 00 2e 00 18 01 ff ff")) != nil, "smart audio options")
 
     check(Set(localeFile("pt-BR").keys) == Set(localeFile("en").keys), "every language has every key")
+    check(Update.newer("0.4.0", than: "0.3.9") && Update.newer("0.10", than: "0.9.1") && !Update.newer("0.3", than: "0.3.0")
+          && !Update.newer("0.3.0", than: "0.3.1") && Update.newer("0.3.0", than: "dev"), "version order")
     loadTexts(language: "pt-BR")
     check(t("list.title") == "Fones" && tf("list.many_connected", ["n": 3]) == "3 conectados", "pt-BR texts")
     loadTexts()
