@@ -59,6 +59,8 @@ enum Sheet: Equatable {
     case beep(Side)
     /// Picking an option of setting n, confirming the button of setting n.
     case options(Int), confirm(Int)
+    /// The app's version and updates (from the list).
+    case app
 }
 
 func displayName(_ s: DeviceState, _ p: Profile) -> String {
@@ -94,6 +96,11 @@ final class Model: ObservableObject {
     @Published var slider: (setting: String, value: UInt8)?
     /// How far the tab's content is scrolled (drawn as is in the genie's still image).
     var scroll: CGFloat = 0
+    @Published var update = Update.Status.idle
+    /// Updates install by themselves when the app starts (on by default).
+    @Published var autoUpdate = UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate") }
+    }
     private var photos: [URL: NSImage?] = [:]
 
     init(profiles: [Profile]) { self.profiles = profiles }
@@ -152,6 +159,24 @@ final class Model: ObservableObject {
     func setLevel(_ n: UInt8, ambient: Bool) {
         edit { if ambient { $0.ambientLevel = n } else { $0.ancLevel = n } }
         send(ambient ? .ambientLevel(n) : .ancLevel(n))
+    }
+
+    /// Looks for a newer release; with `install`, installs it and starts the new app.
+    func checkUpdate(install: Bool) {
+        update = .checking
+        Task { @MainActor in
+            guard let v = await Update.latest() else { return self.update = .failed }
+            guard Update.newer(v) else { return self.update = .upToDate }
+            guard install else { return self.update = .available(v) }
+            self.update = .installing(v)
+            do {
+                try await Update.install()
+                Update.restart()
+            } catch {
+                log("[update] \(error)")
+                self.update = .failed
+            }
+        }
     }
 
     // MARK: equalizer
@@ -628,6 +653,13 @@ struct ListPage: View {
                 Text(t("list.title")).font(.system(size: 17, weight: .bold)).foregroundStyle(ink)
                 Spacer()
                 Text(subtitle).font(.system(size: 12)).foregroundStyle(ink2)
+                Button { m.sheet = .app } label: {
+                    Image(systemName: "gearshape").font(.system(size: 12, weight: .semibold)).foregroundStyle(ink2)
+                        .frame(width: 28, height: 28).glass(14)
+                }
+                .buttonStyle(.plain)
+                .help(t("update.title"))
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
             }
             if m.devices.isEmpty {
                 VStack(spacing: 10) {
@@ -798,17 +830,6 @@ struct DetailPage: View {
         }
         .padding(16)
         .frame(width: panelWidth, height: detailHeight, alignment: .top)
-        .overlay(alignment: .bottom) {
-            ZStack(alignment: .bottom) {
-                if m.sheet != nil {
-                    Color.black.opacity(0.55).contentShape(Rectangle()).onTapGesture { m.sheet = nil }.transition(.opacity)
-                }
-                if let sheet = m.sheet {
-                    SheetPanel(m: m, sheet: sheet).transition(.move(edge: .bottom))
-                }
-            }
-            .animation(springy, value: m.sheet)
-        }
     }
 
     /// Tabs the model has: sound always, touch, find and settings when the profile has them.
@@ -1146,6 +1167,7 @@ struct SheetPanel: View {
                     let s = p.settings[i]
                     confirm(title: t("setting.\(s.name)"), lines: [t("setting.\(s.name)_confirm")],
                             cancel: t("settings.cancel"), ok: t("settings.confirm")) { m.confirm(s) }
+                case .app: app
                 }
             }
             .padding(16)
@@ -1154,6 +1176,44 @@ struct SheetPanel: View {
         .frame(maxWidth: .infinity)
         .background(UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20, style: .continuous).fill(Color(hex: 0x1E1F26)))
         .overlay(UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20, style: .continuous).stroke(Color.white.opacity(0.09)))
+    }
+
+    /// Version, automatic updates and the one update action that fits now.
+    var app: some View {
+        let (text, color, action): (String, Color, (() -> Void)?) = switch m.update {
+        case .idle: (t("update.check"), Color(hex: 0xFF9244), { m.checkUpdate(install: false) })
+        case .checking: (t("update.checking"), ink2, nil)
+        case .upToDate: (t("update.up_to_date"), ink2, { m.checkUpdate(install: false) })
+        case .available(let v): (tf("update.install", ["version": v]), Color(hex: 0xFF9244), { m.checkUpdate(install: true) })
+        case .installing(let v): (tf("update.installing", ["version": v]), ink2, nil)
+        case .failed: (t("update.failed"), warning, { m.checkUpdate(install: false) })
+        }
+        return VStack(spacing: 6) {
+            Text(t("update.title")).font(.system(size: 15, weight: .bold)).foregroundStyle(ink).padding(.bottom, 10)
+            Card {
+                HStack {
+                    Text(t("update.version")).font(.system(size: 13)).foregroundStyle(ink2)
+                    Spacer()
+                    Text(Update.current).font(.system(size: 13, weight: .semibold)).foregroundStyle(ink).textSelection(.enabled)
+                }
+                .padding(.horizontal, 14).frame(height: 42)
+                Hairline()
+                HStack {
+                    TitleHint(title: t("update.auto"), hint: t("update.auto_hint"))
+                    Spacer()
+                    Switch(on: m.autoUpdate) { m.autoUpdate.toggle() }
+                }
+                .padding(.horizontal, 14).frame(height: 50)
+                Hairline()
+                Button { action?() } label: {
+                    Text(text).font(.system(size: 13, weight: action == nil ? .regular : .semibold)).foregroundStyle(color)
+                        .frame(maxWidth: .infinity).frame(height: 44)
+                        .modifier(Hover())
+                }
+                .buttonStyle(.plain)
+                .disabled(action == nil)
+            }
+        }
     }
 
     func list(title: String, items: [(String, Bool)], pick: @escaping (Int) -> Void) -> some View {
@@ -1209,6 +1269,17 @@ struct PanelView: View {
         }
         .frame(width: panelWidth, alignment: .top)
         .fixedSize(horizontal: false, vertical: true)
+        .overlay(alignment: .bottom) {
+            ZStack(alignment: .bottom) {
+                if m.sheet != nil {
+                    Color.black.opacity(0.55).contentShape(Rectangle()).onTapGesture { m.sheet = nil }.transition(.opacity)
+                }
+                if let sheet = m.sheet {
+                    SheetPanel(m: m, sheet: sheet).transition(.move(edge: .bottom))
+                }
+            }
+            .animation(springy, value: m.sheet)
+        }
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(hex: 0x15161B)))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.09)))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -1456,6 +1527,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let model = model
         bluetooth = Bluetooth(prefixes: model.profiles.flatMap(\.namePrefixes)) { id, state in model.update(id, state) }
         model.bluetooth = bluetooth
+        if Update.bundled { model.checkUpdate(install: model.autoUpdate) }
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "headphones", accessibilityDescription: t("app.name"))
         item.button?.target = self
@@ -1493,6 +1565,9 @@ func snapshot(to dir: String, profiles: [Profile]) {
         }
     }
     save("empty")
+    m.sheet = .app
+    save("app-sheet")
+    m.sheet = nil
     // the first model with an id stands in for a real device, with the settings it sent (Nov 8)
     let p = profiles.first { !$0.productIds.isEmpty } ?? Profile()
     var s = DeviceState(connected: true, name: p.name, productId: p.productIds.first, color: 0, mode: .anc, adaptive: false,
@@ -1526,6 +1601,10 @@ func snapshot(to dir: String, profiles: [Profile]) {
 MainActor.assumeIsolated {
     let args = CommandLine.arguments
     loadTexts(language: args.firstIndex(of: "--lang").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil })
+    if args.contains("--version") {
+        print(Update.current)
+        exit(0)
+    }
     if args.contains("--selftest") {
         JBL.selfTest()
         dataSelfTest()
