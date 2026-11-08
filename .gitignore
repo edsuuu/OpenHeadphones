@@ -1,4 +1,2 @@
 /target
 /jbl.py
-# product photos the importer makes from the JBL app (tools/import_jbl_apk.py): JBL's, not ours
-/devices/*/*.png

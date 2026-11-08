@@ -9,7 +9,8 @@ assets/config/dash4/<model>.json (which cards the JBL app shows for it), assets/
 
 Only models with a dash4 screen config and on a "u3" protocol family this app speaks: the Tune Flex 2
 (u3.protocol3) is what the app was written against, and a u3.bes model (JBL Wave Flex) answered all
-of its commands. The photos are JBL's: they are generated here and kept out of git.
+of its commands. The photos come from the JBL app too; they are committed so the release builds
+carry them.
 
 The rows of each card are the Tune Flex 2's (src: JBL Headphones 5.38.2, TuneFlex2Control); a model
 whose card works differently needs the card's code read (jadx) and a row of its own here.
