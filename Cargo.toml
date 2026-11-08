@@ -1,0 +1,38 @@
+[package]
+name = "jbl-headphones"
+version = "0.2.0"
+edition = "2024"
+
+[dependencies]
+ab_glyph = "0.2"
+btleplug = "0.13"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+sys-locale = "0.3"
+tiny-skia = "0.11"
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+toml = "0.9"
+uuid = "1"
+winit = "0.30"
+
+[target.'cfg(windows)'.dependencies]
+tray-icon = "0.26"
+windows = { version = "0.62", features = ["Devices_Bluetooth", "Devices_Bluetooth_GenericAttributeProfile", "Devices_Enumeration", "Foundation_Collections", "Storage_Streams", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tray-icon = "0.26"
+# same versions tray-icon uses; the window's CALayer shows the frame
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSColor", "NSResponder", "NSView", "NSWindow", "objc2-quartz-core"] }
+objc2-core-foundation = { version = "0.3", features = ["CFData"] }
+objc2-core-graphics = { version = "0.3", features = ["CGColorSpace", "CGDataProvider", "CGImage"] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { version = "0.3", features = ["blocking"] }
+softbuffer = "0.4"
+
+[profile.release]
+strip = true
+opt-level = 3
+lto = true
