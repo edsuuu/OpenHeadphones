@@ -2,11 +2,12 @@
 //! HmProtocol3DeviceStatusControl, CmdGen, EQCmd, AdvancedAncCmd, GestureCmd, BeepingCmd).
 //!
 //! Service 65786365-…-2e636f6d0000: write to …0002, the device notifies on …0001.
-//! Packet: `AA <cmd> <len> <payload>`; only the EQ (cmd A2) has a 2-byte little-endian length.
+//! Packet: `AA <cmd> <len> <payload>`; the EQ (cmd A2) and the device info (cmd 06) have a
+//! 2-byte little-endian length.
 
 use uuid::Uuid;
 
-use crate::device::{Battery, Command, DeviceState, NoiseMode};
+use crate::device::{Battery, Command, DeviceState, NoiseMode, Register};
 
 pub const SERVICE: Uuid = Uuid::from_u128(0x65786365_6c70_6f69_6e74_2e636f6d0000);
 pub const NOTIFY: Uuid = Uuid::from_u128(0x65786365_6c70_6f69_6e74_2e636f6d0001);
@@ -18,10 +19,51 @@ pub const BATTERY_REQUEST: &[u8] = &[0xAA, 0x25, 0x01, 0x00];
 const EQ_REQUEST: &[u8] = &[0xAA, 0xA2, 0x02, 0x01, 0xFF]; // 255 = the EQ that is playing
 const GESTURES_REQUEST: &[u8] = &[0xAA, 0x77, 0x02, 0x01, 0xFF]; // answers sub 2 + (gesture, action) pairs
 const BEEP_REQUEST: &[u8] = &[0xAA, 0x23, 0x01, 0x01]; // answers sub 2 + left, right (1 = beeping)
+const BALANCE_REQUEST: &[u8] = &[0xAA, 0xA8, 0x01, 0x01]; // answers sub 2 + 01 on 02 level
+const SMART_SWITCH_REQUEST: &[u8] = &[0xAA, 0x80, 0x01, 0x01]; // answers sub 2 + 4 × u16
+const VOICE_PROMPT_REQUEST: &[u8] = &[0xAA, 0x93, 0x01, 0x04]; // answers sub 5 + (0 tones, 1 voice)
+const TIPS_REQUEST: &[u8] = &[0xAA, 0x9C, 0x01, 0x01]; // answers sub 2 + type
+const SERIAL_REQUEST: &[u8] = &[0xAA, 0x94, 0x01, 0x01]; // answers sub 2 + text
+const PERSONIFI_REQUEST: &[u8] = &[0xAA, 0xA1, 0x01, 0x01]; // answers sub 2 + (key, value)…, key 1 = on
+const STANDBY_REQUEST: &[u8] = &[0xAA, 0x96, 0x01, 0x01]; // answers sub + (mode, on)…: 1 normal, 2 keep ANC
+/// Get/set feature (cmd B1) key 4: accidental touch prevention.
+const TOUCH_GUARD: u8 = 4;
+
+/// `AA B1 <len> 00` + (key, 0)…; answers (key, len, value)…
+fn key_request(key: u8) -> Vec<u8> {
+    vec![0xAA, 0xB1, 0x03, 0x00, key, 0x00]
+}
+
+/// Device info features (GenDeviceInfoCmd) read at start: firmware, auto off, spatial sound,
+/// voice aware, sound effect, mic, speak to chat, auto play/pause, low volume EQ, safe sound,
+/// audio limiter, batteries. Features the model lacks are just left out of the answer.
+const FEATURES: [u16; 14] = [0x05, 0x0B, 0x0C, 0x0D, 0x14, 0x16, 0x08, 0x11, 0x18, 0x20, 0x23, 0x1A, 0x1B, 0x1C];
+
+/// `AA 06 <len u16> 01` + feature ids (u16 big-endian); answers sub 2 + (id u16, len, value)…
+fn feature_request(ids: &[u16]) -> Vec<u8> {
+    let n = (1 + 2 * ids.len()) as u16;
+    [vec![0xAA, 0x06], n.to_le_bytes().to_vec(), vec![0x01], ids.iter().flat_map(|id| id.to_be_bytes()).collect()].concat()
+}
 
 /// Asked right after connecting.
-pub const INITIAL_REQUESTS: [&[u8]; 6] =
-    [INFO_REQUEST, MODE_REQUEST, BATTERY_REQUEST, EQ_REQUEST, GESTURES_REQUEST, BEEP_REQUEST];
+pub fn initial_requests() -> Vec<Vec<u8>> {
+    let fixed = [
+        INFO_REQUEST,
+        MODE_REQUEST,
+        BATTERY_REQUEST,
+        EQ_REQUEST,
+        GESTURES_REQUEST,
+        BEEP_REQUEST,
+        BALANCE_REQUEST,
+        SMART_SWITCH_REQUEST,
+        VOICE_PROMPT_REQUEST,
+        TIPS_REQUEST,
+        SERIAL_REQUEST,
+        PERSONIFI_REQUEST,
+        STANDBY_REQUEST,
+    ];
+    fixed.iter().map(|q| q.to_vec()).chain([key_request(TOUCH_GUARD), feature_request(&FEATURES)]).collect()
+}
 
 /// [ANC, Ambient, TalkThru] flags — ids 1, 2 and 3 in packet 0x91.
 const MODES: [(NoiseMode, [u8; 3]); 4] = [
@@ -49,16 +91,50 @@ pub fn encode(cmd: &Command) -> Vec<u8> {
             let side = |s: &Option<bool>| s.map_or(0xFF, |on| on as u8);
             vec![0xAA, 0x23, 0x03, 0x00, side(left), side(right)]
         }
+        Command::Write(reg, v) => encode_write(*reg, v),
+        Command::PowerOff => vec![0xAA, 0x97, 0x00],
+        Command::FactoryReset => vec![0xAA, 0x95, 0x00],
+    }
+}
+
+/// Empty when there is nothing to send (read-only register, value too short).
+fn encode_write(reg: Register, v: &[u8]) -> Vec<u8> {
+    let byte = |i: usize| v.get(i).copied();
+    match (reg, byte(0), byte(1)) {
+        (Register::Feature(id), ..) => {
+            let n = (4 + v.len()) as u16;
+            [vec![0xAA, 0x06], n.to_le_bytes().to_vec(), vec![0x00], id.to_be_bytes().to_vec(), vec![v.len() as u8], v.to_vec()]
+                .concat()
+        }
+        (Register::Anc(kind), Some(x), _) => vec![0xAA, 0x91, 0x03, 0x20, kind, x],
+        (Register::Balance, Some(on), Some(level)) => vec![0xAA, 0xA8, 0x05, 0x00, 0x01, on, 0x02, level],
+        (Register::SmartSwitch, ..) if v.len() == 8 => [vec![0xAA, 0x80, 0x09, 0x00], v.to_vec()].concat(),
+        (Register::VoicePrompt, Some(x), _) => vec![0xAA, 0x93, 0x02, 0x03, x],
+        (Register::Tips, Some(x), _) => vec![0xAA, 0x9C, 0x02, 0x00, x],
+        (Register::PersoniFi, Some(x), _) => vec![0xAA, 0xA1, 0x03, 0x00, 0x01, x],
+        // standby on = normal mode on + keep-ANC mode off, and the other way round
+        (Register::Standby, Some(x), _) => vec![0xAA, 0x96, 0x05, 0x00, 0x01, x, 0x02, (x == 0) as u8],
+        (Register::Key(key), Some(x), _) => vec![0xAA, 0xB1, 0x04, 0x01, key, 0x01, x],
+        _ => vec![],
     }
 }
 
 /// The device only acks these: ask again so the screen shows what stuck.
-pub fn follow_up(cmd: &Command) -> Option<&'static [u8]> {
-    match cmd {
-        Command::Gestures(_) => Some(GESTURES_REQUEST),
-        Command::Beep { .. } => Some(BEEP_REQUEST),
-        _ => None,
-    }
+pub fn follow_up(cmd: &Command) -> Option<Vec<u8>> {
+    let q = match cmd {
+        Command::Gestures(_) => GESTURES_REQUEST,
+        Command::Beep { .. } => BEEP_REQUEST,
+        Command::Write(Register::Feature(id), _) => return Some(feature_request(&[*id])),
+        Command::Write(Register::Balance, _) => BALANCE_REQUEST,
+        Command::Write(Register::SmartSwitch, _) => SMART_SWITCH_REQUEST,
+        Command::Write(Register::VoicePrompt, _) => VOICE_PROMPT_REQUEST,
+        Command::Write(Register::Tips, _) => TIPS_REQUEST,
+        Command::Write(Register::PersoniFi, _) => PERSONIFI_REQUEST,
+        Command::Write(Register::Standby, _) => STANDBY_REQUEST,
+        Command::Write(Register::Key(key), _) => return Some(key_request(*key)),
+        _ => return None,
+    };
+    Some(q.to_vec())
 }
 
 /// EQ "Q×10" (sub 3) in category 230 (custom) or 0 (off).
@@ -91,8 +167,8 @@ fn split(mut d: &[u8]) -> Vec<&[u8]> {
     let mut v = vec![];
     while d.len() >= 3 && d[0] == 0xAA {
         let (start, n) = match d[1] {
-            0xA2 if d.len() >= 4 => (4, u16::from_le_bytes([d[2], d[3]]) as usize),
-            0xA2 => break,
+            0xA2 | 0x06 if d.len() >= 4 => (4, u16::from_le_bytes([d[2], d[3]]) as usize),
+            0xA2 | 0x06 => break,
             _ => (3, d[2] as usize),
         };
         let end = (start + n).min(d.len());
@@ -119,6 +195,7 @@ pub fn apply(state: &mut DeviceState, data: &[u8]) -> bool {
             }
             (0x91, Some(0x22)) => {
                 for pair in pairs() {
+                    state.registers.insert(Register::Anc(pair[0]), vec![pair[1]]);
                     match pair[0] {
                         0x01 => state.adaptive = Some(pair[1] != 0),
                         0x04 => state.anc_level = Some(pair[1]),
@@ -138,6 +215,29 @@ pub fn apply(state: &mut DeviceState, data: &[u8]) -> bool {
                     right_charging: b[1] != 0,
                     case_charging: b[4] != 0,
                 });
+            }
+            (0x06, _) if p.get(4) == Some(&0x02) => apply_features(state, &p[5..]),
+            (0xA8, Some(0x02)) if p.len() >= 8 => _ = state.registers.insert(Register::Balance, vec![p[5], p[7]]),
+            (0x80, Some(0x02)) if p.len() >= 12 => _ = state.registers.insert(Register::SmartSwitch, p[4..12].to_vec()),
+            (0x93, Some(0x05)) if p.len() >= 5 => _ = state.registers.insert(Register::VoicePrompt, vec![p[4]]),
+            (0x9C, Some(0x02)) if p.len() >= 5 => _ = state.registers.insert(Register::Tips, vec![p[4]]),
+            (0x94, Some(0x02)) => _ = state.registers.insert(Register::Serial, p[4..].to_vec()),
+            (0xA1, Some(0x02)) if p.len() >= 6 && p[4] == 0x01 => _ = state.registers.insert(Register::PersoniFi, vec![p[5]]),
+            (0x96, Some(_)) => {
+                if let Some(m) = pairs().find(|m| m[0] == 1) {
+                    state.registers.insert(Register::Standby, vec![m[1]]);
+                }
+            }
+            // (key, len, value)…
+            (0xB1, Some(_)) => {
+                let mut d = p.get(4..).unwrap_or_default();
+                while let [key, n, rest @ ..] = d {
+                    let Some(v) = rest.get(..*n as usize) else { break };
+                    if let Some(&x) = v.first() {
+                        state.registers.insert(Register::Key(*key), vec![x]);
+                    }
+                    d = &rest[*n as usize..];
+                }
             }
             (0x77, Some(0x02)) => state.gestures = Some(pairs().map(|x| (x[0], x[1])).collect()),
             (0x23, Some(0x02)) if p.len() >= 6 => state.beep = Some((p[4] == 1, p[5] == 1)),
@@ -162,6 +262,25 @@ pub fn apply(state: &mut DeviceState, data: &[u8]) -> bool {
         }
     }
     *state != before
+}
+
+/// (id u16 big-endian, len, value)… — every one kept raw; the batteries also go to `battery`.
+fn apply_features(state: &mut DeviceState, mut d: &[u8]) {
+    while d.len() >= 3 {
+        let (id, n) = (u16::from_be_bytes([d[0], d[1]]), d[2] as usize);
+        let Some(v) = d.get(3..3 + n) else { break };
+        if let (0x1A..=0x1C, [charging, level, ..]) = (id, v) {
+            let b = state.battery.get_or_insert_default();
+            let (c, l) = match id {
+                0x1A => (&mut b.left_charging, &mut b.left),
+                0x1B => (&mut b.right_charging, &mut b.right),
+                _ => (&mut b.case_charging, &mut b.case),
+            };
+            (*c, *l) = (*charging != 0, *level);
+        }
+        state.registers.insert(Register::Feature(id), v.to_vec());
+        d = &d[3 + n..];
+    }
 }
 
 #[cfg(test)]
@@ -231,5 +350,49 @@ mod tests {
         echo[4] = 4;
         apply(&mut s, &echo);
         assert_eq!(s.eq, Some(Some(g.to_vec())));
+    }
+
+    /// The settings page: device info features and the commands of their own (log of Nov 8).
+    #[test]
+    fn reads_and_writes_the_settings() {
+        let mut s = DeviceState::default();
+        let info = "aa 06 3d 00 02 00 05 03 03 05 00 00 06 01 07 00 0b 03 00 1e 00 00 0c 02 00 01 00 0d 02 00 02 \
+                    00 14 02 00 00 00 16 03 00 00 00 00 1a 02 00 64 00 1b 02 00 64 00 1c 02 00 1f 00 20 01 00 00 23 01 01";
+        assert!(apply(&mut s, &hex(info)));
+        let reg = |s: &DeviceState, r| s.registers.get(&r).cloned();
+        assert_eq!(reg(&s, Register::Feature(0x05)), Some(vec![3, 5, 0]));
+        assert_eq!(reg(&s, Register::Feature(0x0B)), Some(vec![0, 0x1e, 0]));
+        assert_eq!(reg(&s, Register::Feature(0x23)), Some(vec![1]));
+        assert_eq!(s.battery.map(|b| b.case), Some(0x1f));
+        // a bud charging, from the info notification
+        apply(&mut s, &hex("aa 06 10 00 02 00 1a 02 01 64 00 1b 02 00 64 00 1c 02 00 3e"));
+        let b = s.battery.unwrap();
+        assert_eq!((b.left_charging, b.right_charging, b.case), (true, false, 0x3e));
+        apply(&mut s, &hex("aa 80 09 02 00 01 2e 00 18 01 ff ff aa 9c 02 02 00"));
+        assert_eq!(reg(&s, Register::SmartSwitch), Some(hex("00 01 2e 00 18 01 ff ff")));
+        assert_eq!(reg(&s, Register::Tips), Some(vec![0]));
+        apply(&mut s, &hex("aa 94 11 02 4d 4d 30 32 34 35 2d 44 50 30 32 34 36 39 36 31"));
+        assert_eq!(reg(&s, Register::Serial), Some(b"MM0245-DP0246961".to_vec()));
+        apply(&mut s, &hex("aa a8 05 02 01 00 02 64 aa 93 02 05 01"));
+        assert_eq!((reg(&s, Register::Balance), reg(&s, Register::VoicePrompt)), (Some(vec![0, 0x64]), Some(vec![1])));
+
+        let write = |r, v: &[u8]| encode(&Command::Write(r, v.to_vec()));
+        assert_eq!(write(Register::Feature(0x20), &[1]), hex("aa 06 05 00 00 00 20 01 01"));
+        assert_eq!(write(Register::Feature(0x0B), &[1, 0x1e, 0]), hex("aa 06 07 00 00 00 0b 03 01 1e 00"));
+        assert_eq!(write(Register::Anc(0x08), &[1]), hex("aa 91 03 20 08 01"));
+        assert_eq!(write(Register::Balance, &[1, 40]), hex("aa a8 05 00 01 01 02 28"));
+        assert_eq!(write(Register::SmartSwitch, &hex("c5 00 2e 00 78 00 ff ff")), hex("aa 80 09 00 c5 00 2e 00 78 00 ff ff"));
+        assert_eq!(write(Register::VoicePrompt, &[0]), hex("aa 93 02 03 00"));
+        assert!(write(Register::Serial, b"x").is_empty());
+        // from the JBL app's builders (not yet tried on the device)
+        assert_eq!(write(Register::PersoniFi, &[1]), hex("aa a1 03 00 01 01"));
+        assert_eq!(write(Register::Standby, &[0]), hex("aa 96 05 00 01 00 02 01"));
+        assert_eq!(write(Register::Key(4), &[1]), hex("aa b1 04 01 04 01 01"));
+        apply(&mut s, &hex("aa 96 05 02 01 01 02 00 aa b1 04 02 04 01 01 aa a1 03 02 01 00"));
+        assert_eq!(reg(&s, Register::Standby), Some(vec![1]));
+        assert_eq!(reg(&s, Register::Key(4)), Some(vec![1]));
+        assert_eq!(reg(&s, Register::PersoniFi), Some(vec![0]));
+        assert_eq!(follow_up(&Command::Write(Register::Feature(0x20), vec![1])), Some(hex("aa 06 03 00 01 00 20")));
+        assert_eq!(initial_requests().last().unwrap()[..7], hex("aa 06 1d 00 01 00 05"));
     }
 }

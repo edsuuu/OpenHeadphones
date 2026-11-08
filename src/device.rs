@@ -24,6 +24,32 @@ impl NoiseMode {
     }
 }
 
+/// Where a setting's bytes live on the device (named in the profiles' `[[settings]]`).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Register {
+    /// Device info feature (id), the value as the device stores it.
+    Feature(u16),
+    /// One advanced ANC value (type).
+    Anc(u8),
+    /// [on, level].
+    Balance,
+    /// AAC, SBC and two latencies, u16 little-endian each.
+    SmartSwitch,
+    /// [0 = tones, 1 = voice].
+    VoicePrompt,
+    /// [ear tip type].
+    Tips,
+    /// [Personi-Fi on].
+    PersoniFi,
+    /// [auto standby on].
+    Standby,
+    /// [value] of a key of the get/set feature command.
+    Key(u8),
+    /// Serial number, text (read only).
+    Serial,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct Battery {
     pub left: u8,
@@ -53,6 +79,8 @@ pub struct DeviceState {
     pub gestures: Option<Vec<(u8, u8)>>,
     /// Left, right beeping (find my buds).
     pub beep: Option<(bool, bool)>,
+    /// Raw values behind the settings page, as last read.
+    pub registers: std::collections::BTreeMap<Register, Vec<u8>>,
 }
 
 #[derive(Clone, Debug)]
@@ -67,4 +95,8 @@ pub enum Command {
     Gestures(Vec<(u8, u8)>),
     /// `Some(true)` beeps, `Some(false)` stops, `None` leaves that side alone.
     Beep { left: Option<bool>, right: Option<bool> },
+    /// The whole value of a register.
+    Write(Register, Vec<u8>),
+    PowerOff,
+    FactoryReset,
 }

@@ -41,6 +41,7 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
         eq: model.eq.as_ref().and_then(|e| e.presets.get(2)).map(|p| Some(p.gains.clone())),
         gestures: Some(model.gestures.iter().zip(model.actions.iter().cycle().skip(6)).map(|(g, a)| (g.id, a.id)).collect()),
         beep: Some((false, true)),
+        registers: Default::default(),
     };
     u.update("fake".into(), state.clone());
     u.settle();

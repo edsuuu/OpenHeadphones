@@ -200,8 +200,8 @@ async fn session(
     let (link, mut notifications) = Link::open(p).await?;
     state.connected = true;
     emit(id.to_string(), state.clone());
-    for q in jbl::INITIAL_REQUESTS {
-        link.send(q).await?;
+    for q in jbl::initial_requests() {
+        link.send(&q).await?;
     }
     let mut battery = interval_at(Instant::now() + Duration::from_secs(30), Duration::from_secs(30));
     loop {
@@ -218,10 +218,13 @@ async fn session(
             c = rx.recv() => match c {
                 Some(c) => {
                     let packet = jbl::encode(&c);
+                    if packet.is_empty() {
+                        continue;
+                    }
                     log_packet(id, "->", &packet);
                     link.send(&packet).await?;
                     if let Some(q) = jbl::follow_up(&c) {
-                        link.send(q).await?;
+                        link.send(&q).await?;
                     }
                 }
                 None => return Ok(()),
