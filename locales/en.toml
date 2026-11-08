@@ -1,0 +1,111 @@
+# English. Keys are grouped by table: [list] title → "list.title". {name} = placeholder.
+
+[app]
+name = "JBL Headphones"
+open = "Open"
+quit = "Quit"
+
+[device]
+unknown = "Headphones"
+connected = "Connected"
+disconnected = "Disconnected"
+
+[list]
+title = "Headphones"
+none_connected = "None connected"
+one_connected = "1 connected"
+many_connected = "{n} connected"
+searching = "Looking for headphones…"
+searching_hint = "Keep them paired and out of the case"
+take_out = "Disconnected · take them out of the case"
+
+[battery]
+left = "Left"
+right = "Right"
+case = "Case"
+left_short = "L"
+right_short = "R"
+
+[tab]
+sound = "Sound"
+gestures = "Touch"
+find = "Find"
+
+[noise]
+section = "NOISE CONTROL"
+anc = "ANC"
+ambient = "Ambient"
+talk_thru = "Talk"
+off = "Off"
+anc_long = "Noise cancelling"
+ambient_long = "Ambient sound"
+talk_thru_long = "Talk mode"
+off_long = "Noise control off"
+
+[anc]
+adaptive = "Adaptive"
+adaptive_hint = "Adjusts to your surroundings"
+only_anc = "Only in ANC mode"
+intensity = "Intensity"
+automatic = "Automatic"
+level = "Level {n} of {max}"
+
+[eq]
+section = "EQUALIZER"
+custom = "Custom"
+point = "{freq} Hz · {gain} dB"
+flat = "Flat"
+bass = "Bass"
+energy = "Energy"
+vocal = "Vocal"
+bright = "Bright"
+soft = "Soft"
+
+[side]
+left = "Left"
+right = "Right"
+
+[gestures]
+loading = "Reading the touch controls…"
+hint = "Pick what each touch does"
+
+[gesture]
+tap = "Single tap"
+double_tap = "Double tap"
+triple_tap = "Triple tap"
+hold = "Tap and hold"
+
+[action]
+none = "Nothing"
+play_pause = "Play / pause"
+next = "Next track"
+previous = "Previous track"
+volume_up = "Volume up"
+volume_down = "Volume down"
+anc_ambient = "ANC / Ambient"
+anc_ambient_off = "ANC / Ambient / Off"
+talk_thru = "Talk mode"
+voice_assistant = "Voice assistant"
+unknown = "Other ({id})"
+
+[find]
+warning = "Take them out of your ears first"
+warning_hint = "The beep plays at full volume"
+play = "Beep"
+stop = "Stop"
+playing = "Beeping…"
+idle = "Silent"
+confirm_title = "Take them out of your ears"
+confirm_line1 = "The beep plays at full volume and"
+confirm_line2 = "can hurt your ears."
+cancel = "Cancel"
+confirm = "Beep"
+
+[error]
+no_font = "No system font found"
+window = "Could not create the window"
+event_loop = "The event loop failed"
+runtime = "Could not start the Bluetooth thread"
+snapshot = "Could not save the PNG"
+no_data = "Folder with devices/ and locales/ not found next to the program"
+bad_profile = "Invalid device profile {path}: {error}"

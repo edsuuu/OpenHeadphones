@@ -1,0 +1,111 @@
+# Português do Brasil. Mesmas chaves do en.toml; o que faltar aqui sai em inglês.
+
+[app]
+name = "Fones JBL"
+open = "Abrir"
+quit = "Sair"
+
+[device]
+unknown = "Fone"
+connected = "Conectado"
+disconnected = "Desconectado"
+
+[list]
+title = "Fones"
+none_connected = "Nenhum conectado"
+one_connected = "1 conectado"
+many_connected = "{n} conectados"
+searching = "Procurando fones…"
+searching_hint = "Deixe o fone pareado e fora do estojo"
+take_out = "Desconectado · tire do estojo"
+
+[battery]
+left = "Esquerdo"
+right = "Direito"
+case = "Estojo"
+left_short = "E"
+right_short = "D"
+
+[tab]
+sound = "Som"
+gestures = "Toques"
+find = "Achar"
+
+[noise]
+section = "CONTROLE DE RUÍDO"
+anc = "ANC"
+ambient = "Ambiente"
+talk_thru = "Conversa"
+off = "Desligado"
+anc_long = "Cancelamento de ruído"
+ambient_long = "Som ambiente"
+talk_thru_long = "Modo conversa"
+off_long = "Controle de ruído desligado"
+
+[anc]
+adaptive = "Adaptativo"
+adaptive_hint = "Ajusta a força ao ambiente"
+only_anc = "Só no modo ANC"
+intensity = "Intensidade"
+automatic = "Automática"
+level = "Nível {n} de {max}"
+
+[eq]
+section = "EQUALIZADOR"
+custom = "Personalizado"
+point = "{freq} Hz · {gain} dB"
+flat = "Plano"
+bass = "Grave"
+energy = "Energia"
+vocal = "Voz"
+bright = "Brilho"
+soft = "Suave"
+
+[side]
+left = "Esquerdo"
+right = "Direito"
+
+[gestures]
+loading = "Lendo os toques do fone…"
+hint = "Escolha o que cada toque faz"
+
+[gesture]
+tap = "1 toque"
+double_tap = "2 toques"
+triple_tap = "3 toques"
+hold = "Tocar e segurar"
+
+[action]
+none = "Nada"
+play_pause = "Tocar / pausar"
+next = "Próxima faixa"
+previous = "Faixa anterior"
+volume_up = "Aumentar volume"
+volume_down = "Diminuir volume"
+anc_ambient = "ANC / Ambiente"
+anc_ambient_off = "ANC / Ambiente / Desligado"
+talk_thru = "Modo conversa"
+voice_assistant = "Assistente de voz"
+unknown = "Outra ({id})"
+
+[find]
+warning = "Tire os fones do ouvido antes"
+warning_hint = "O bipe toca no volume máximo"
+play = "Apitar"
+stop = "Parar"
+playing = "Apitando…"
+idle = "Em silêncio"
+confirm_title = "Tire os fones do ouvido"
+confirm_line1 = "O bipe toca no volume máximo e"
+confirm_line2 = "pode machucar seus ouvidos."
+cancel = "Cancelar"
+confirm = "Apitar"
+
+[error]
+no_font = "Nenhuma fonte do sistema encontrada"
+window = "Não deu para criar a janela"
+event_loop = "O laço de eventos falhou"
+runtime = "Não deu para iniciar a thread do Bluetooth"
+snapshot = "Não deu para salvar o PNG"
+no_data = "Pasta com devices/ e locales/ não encontrada ao lado do programa"
+bad_profile = "Perfil de aparelho inválido {path}: {error}"
