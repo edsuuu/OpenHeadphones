@@ -98,22 +98,33 @@ async fn manager(mut rx: UnboundedReceiver<(String, Command)>, emit: Emit, prefi
                 if !sessions.is_empty() && round % 10 != 0 {
                     continue;
                 }
+                // by name: the same headphones show up under more than one BLE id (one per earbud,
+                // and macOS hands out a new one after a while), so the id would list them twice
+                let mut found: HashMap<String, Vec<Peripheral>> = HashMap::new();
                 for (p, name) in candidates(&central, &prefixes).await {
-                    let id = format!("{:?}", p.id());
-                    // still in the case: try again in 10 s, not every round
-                    if sessions.contains_key(&id) || ended.get(&id).is_some_and(|t| t.elapsed() < Duration::from_secs(10)) {
+                    found.entry(name).or_default().push(p);
+                }
+                for (id, ps) in found {
+                    // failed: next round, not 10 s later (right after connecting for audio the headphones
+                    // can drop the first BLE link; still in the case, an attempt takes its timeout anyway)
+                    if sessions.contains_key(&id) || ended.get(&id).is_some_and(|t| t.elapsed() < Duration::from_secs(3)) {
                         continue;
                     }
                     let (tx, rx) = mpsc::unbounded_channel();
                     sessions.insert(id.clone(), tx);
                     let (emit, end) = (emit.clone(), end_tx.clone());
                     tokio::spawn(async move {
-                        let mut state = DeviceState { name, ..Default::default() };
-                        let r = session(&p, &id, rx, &emit, &mut state).await;
-                        eprintln!("[bluetooth] session {id} ({}) ended: {r:?}", state.name);
-                        let _ = p.disconnect().await;
-                        state.connected = false;
-                        emit(id.clone(), state);
+                        let mut state = DeviceState { name: id.clone(), ..Default::default() };
+                        let r = session(&ps, &id, rx, &emit, &mut state).await;
+                        eprintln!("[bluetooth] session {id} ended: {r:?}");
+                        for p in &ps {
+                            let _ = p.disconnect().await;
+                        }
+                        // never connected (still in the case): nothing to list
+                        if state.connected {
+                            state.connected = false;
+                            emit(id.clone(), state);
+                        }
                         let _ = end.send(id);
                     });
                 }
@@ -122,19 +133,68 @@ async fn manager(mut rx: UnboundedReceiver<(String, Command)>, emit: Emit, prefi
     }
 }
 
-/// Paired on Windows + already connected to the system (macOS does not advertise those) + found by the scan.
+/// Only this computer's headphones: paired on Windows, connected to the system on BLE (macOS does
+/// not advertise those), or advertising under the name of one connected here for audio. GATT needs
+/// no pairing: anything else the scan finds is someone else's, nearby.
 async fn candidates(central: &Adapter, prefixes: &[String]) -> Vec<(Peripheral, String)> {
     let mut v = paired(central, prefixes).await;
     let options = RetrievePeripheralsOptions { services: Some(vec![jbl::SERVICE]), ..Default::default() };
-    let more = central.retrieve_peripherals(options).await.unwrap_or_default();
-    for p in more.into_iter().chain(central.peripherals().await.unwrap_or_default()) {
+    let connected = central.retrieve_peripherals(options).await.unwrap_or_default();
+    let here = connected_here();
+    let scanned = central.peripherals().await.unwrap_or_default();
+    for (p, ours) in connected.into_iter().map(|p| (p, true)).chain(scanned.into_iter().map(|p| (p, false))) {
         let name = advertised_name(&p).await;
-        // ponytail: two identical paired headphones only show up through pairing; compare the MAC from 0x12 if needed
-        if wanted(&name, prefixes) && !v.iter().any(|(q, n)| q.id() == p.id() || *n == name) {
-            v.push((p, name));
+        if !wanted(&name, prefixes) || v.iter().any(|(q, _)| q.id() == p.id()) {
+            continue;
         }
+        // ponytail: by name, so the same model nearby also passes while ours is connected, and a device renamed in
+        // the Bluetooth settings does not match; compare the MAC from 0x12 if needed
+        if !ours && !here.contains(&name) {
+            if DEBUG.load(Ordering::Relaxed) {
+                eprintln!("[bluetooth] skipped {name:?}: not connected to this computer (connected: {here:?})");
+            }
+            continue;
+        }
+        v.push((p, name));
     }
     v
+}
+
+/// macOS: names of the devices paired with this Mac and connected to it now (audio included).
+#[cfg(target_os = "macos")]
+fn connected_here() -> Vec<String> {
+    use std::ffi::{CStr, c_char};
+
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, AnyObject};
+
+    #[link(name = "IOBluetooth", kind = "framework")]
+    unsafe extern "C" {}
+    let Some(class) = AnyClass::get(c"IOBluetoothDevice") else { return vec![] };
+    objc2::rc::autoreleasepool(|_| unsafe {
+        let list: *mut AnyObject = msg_send![class, pairedDevices];
+        if list.is_null() {
+            return vec![];
+        }
+        let n: usize = msg_send![list, count];
+        (0..n)
+            .filter_map(|i| {
+                let d: *mut AnyObject = msg_send![list, objectAtIndex: i];
+                let on: bool = msg_send![d, isConnected];
+                let name: *mut AnyObject = msg_send![d, name];
+                if !on || name.is_null() {
+                    return None;
+                }
+                let s: *const c_char = msg_send![name, UTF8String];
+                (!s.is_null()).then(|| CStr::from_ptr(s).to_string_lossy().into_owned())
+            })
+            .collect()
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn connected_here() -> Vec<String> {
+    vec![]
 }
 
 /// Connected to the PC for audio, the headphones do not advertise on BLE and the scan misses
@@ -191,13 +251,20 @@ async fn advertised_name(p: &Peripheral) -> String {
 
 /// Runs while the device stays connected.
 async fn session(
-    p: &Peripheral,
+    ps: &[Peripheral],
     id: &str,
     mut rx: UnboundedReceiver<Command>,
     emit: &Emit,
     state: &mut DeviceState,
 ) -> btleplug::Result<()> {
-    let (link, mut notifications) = Link::open(p).await?;
+    // all of the device's BLE ids at once, the first that answers wins: one at a time, a silent
+    // one held the right one back for the 15 s of its timeout
+    let opens = ps.iter().enumerate().map(|(i, p)| Box::pin(async move { Link::open(p).await.map(|l| (l, i)) }));
+    let (((link, mut notifications), won), _) = futures::future::select_ok(opens).await?;
+    // the others are let go only when the session ends: disconnecting them here dropped this one too
+    if DEBUG.load(Ordering::Relaxed) {
+        eprintln!("[bluetooth] {id}: {} BLE id(s), {:?} answered", ps.len(), ps[won].id());
+    }
     state.connected = true;
     emit(id.to_string(), state.clone());
     for q in jbl::initial_requests() {
