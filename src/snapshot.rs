@@ -7,9 +7,19 @@ use tiny_skia::{IntSize, Pixmap};
 use crate::device::{Battery, DeviceState, NoiseMode};
 use crate::i18n::t;
 use crate::profile::Profile;
+use crate::protocol::jbl;
 use crate::render::fonts::Fonts;
 use crate::render::genie::genie;
 use crate::ui::{self, Tab, Ui};
+
+const SETTINGS: [&str; 5] = [
+    "aa 06 3d 00 02 00 05 03 03 05 00 00 06 01 07 00 0b 03 00 1e 00 00 0c 02 00 01 00 0d 02 00 02 00 14 02 00 00 \
+     00 16 03 00 00 00 00 1a 02 00 60 00 1b 02 00 61 00 1c 02 01 28 00 20 01 00 00 23 01 01",
+    "aa 91 09 22 01 00 04 05 05 01 a1 03",
+    "aa 80 09 02 c5 00 2e 00 18 01 ff ff",
+    "aa 94 11 02 4d 4d 30 32 34 35 2d 44 50 30 32 34 36 39 36 31",
+    "aa a8 05 02 01 01 02 61 aa 93 02 05 01 aa 9c 02 02 00",
+];
 
 pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
     let fonts = Fonts::load();
@@ -43,6 +53,12 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
         beep: Some((false, true)),
         registers: Default::default(),
     };
+    let mut state = state;
+    // the settings as the real device sent them (Nov 8)
+    for packet in SETTINGS {
+        let bytes: Vec<u8> = packet.split(' ').filter_map(|b| u8::from_str_radix(b, 16).ok()).collect();
+        jbl::apply(&mut state, &bytes);
+    }
     u.update("fake".into(), state.clone());
     u.settle();
     u.draw(&mut pm, s, &fonts);
@@ -56,6 +72,8 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
         ("gestures-sheet", Tab::Gestures, true, NoiseMode::Anc),
         ("find", Tab::Find, false, NoiseMode::Anc),
         ("find-sheet", Tab::Find, true, NoiseMode::Anc),
+        ("settings", Tab::Settings, false, NoiseMode::Anc),
+        ("settings-sheet", Tab::Settings, true, NoiseMode::Anc),
     ];
     for (name, tab, sheet, mode) in screens {
         u.update("fake".into(), DeviceState { mode: Some(mode), ..state.clone() });
@@ -65,6 +83,15 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
             u.draw(&mut pm, s, &fonts);
             u.step(1.0 / 60.0);
         }
+        u.draw(&mut pm, s, &fonts);
+        save(&pm, name);
+    }
+
+    // the settings scrolled halfway and to the end, under the header
+    u.preview(Tab::Settings, false);
+    u.draw(&mut pm, s, &fonts);
+    for (name, dy) in [("settings-mid", 460.0), ("settings-end", 10_000.0)] {
+        u.wheel(dy);
         u.draw(&mut pm, s, &fonts);
         save(&pm, name);
     }

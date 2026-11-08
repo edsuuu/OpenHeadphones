@@ -20,6 +20,11 @@ pub fn t(key: &str) -> String {
     TEXTS.get().and_then(|m| m.get(key)).cloned().unwrap_or_else(|| key.to_string())
 }
 
+/// `t`, or nothing when the key is not in any language (optional texts, like hints).
+pub fn maybe(key: &str) -> Option<String> {
+    TEXTS.get().and_then(|m| m.get(key)).cloned()
+}
+
 /// `t` with its `{name}` placeholders filled in.
 pub fn tf(key: &str, args: &[(&str, &dyn Display)]) -> String {
     args.iter().fold(t(key), |s, (name, value)| s.replace(&format!("{{{name}}}"), &value.to_string()))

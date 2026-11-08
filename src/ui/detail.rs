@@ -2,11 +2,11 @@
 
 use tiny_skia::Shader;
 
-use super::{Action, Tab, Ui, WIDTH, display_name};
+use super::{Action, CONTENT_Y, Tab, Ui, WIDTH, display_name};
 use crate::i18n::t;
 use crate::profile::Profile;
 use crate::render::painter::Painter;
-use crate::render::{GREEN, TEXT, TEXT2, TEXT3, color, icons, shapes};
+use crate::render::{GREEN, PANEL, TEXT, TEXT2, TEXT3, color, icons, shapes};
 
 /// Tabs the model has: sound always, touch and find when the profile has them.
 fn tabs_of(profile: &Profile) -> Vec<Tab> {
@@ -17,6 +17,9 @@ fn tabs_of(profile: &Profile) -> Vec<Tab> {
     if profile.find_buds {
         v.push(Tab::Find);
     }
+    if !profile.settings.is_empty() {
+        v.push(Tab::Settings);
+    }
     v
 }
 
@@ -24,6 +27,22 @@ impl Ui {
     pub(super) fn draw_detail(&mut self, p: &mut Painter) {
         let Some(state) = self.state().cloned() else { return };
         let profile = self.profile_for(&state);
+        let tabs = tabs_of(&profile);
+        if !tabs.contains(&self.tab) {
+            self.tab = Tab::Sound;
+        }
+
+        // the settings scroll under the header: drawn first, then covered (only when scrolled,
+        // or the cover would hide the list sliding by)
+        if self.tab == Tab::Settings {
+            self.draw_settings(p, &state, &profile);
+        }
+        if self.tab == Tab::Settings && self.scroll > 0.5 {
+            let edge = CONTENT_Y - 8.0;
+            p.fill(&shapes::rounded_rect(0.0, -40.0, WIDTH, edge + 40.0, 0.0), Shader::SolidColor(color(PANEL, 1.0)));
+            let fade = [(0.0, color(PANEL, 1.0)), (1.0, color(PANEL, 0.0))];
+            p.fill(&shapes::rounded_rect(0.0, edge, WIDTH, 12.0, 0.0), shapes::linear(0.0, edge, 0.0, edge + 12.0, &fade));
+        }
 
         // header
         self.target(p, 12.0, 12.0, 42.0, 40.0, Action::Back);
@@ -50,10 +69,6 @@ impl Ui {
         }
 
         // tabs
-        let tabs = tabs_of(&profile);
-        if !tabs.contains(&self.tab) {
-            self.tab = Tab::Sound;
-        }
         if tabs.len() > 1 {
             let n = tabs.len() as f32;
             let w = (WIDTH - 32.0 - 6.0 * (n - 1.0)) / n;
@@ -72,6 +87,7 @@ impl Ui {
             Tab::Sound => self.draw_sound(p, &state, &profile),
             Tab::Gestures => self.draw_gestures(p, &state, &profile),
             Tab::Find => self.draw_find(p, &state),
+            Tab::Settings => {}
         }
     }
 }

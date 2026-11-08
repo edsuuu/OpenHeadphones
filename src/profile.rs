@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use serde::Deserialize;
 
-use crate::device::NoiseMode;
+use crate::device::{NoiseMode, Register};
 use crate::i18n::{t, tf};
 
 #[derive(Deserialize, Default, Debug)]
@@ -29,6 +29,8 @@ pub struct Profile {
     pub eq: Option<Eq>,
     pub gestures: Vec<Gesture>,
     pub actions: Vec<GestureAction>,
+    /// The settings tab, in order.
+    pub settings: Vec<Setting>,
     /// Folder the profile came from; photos are relative to it.
     #[serde(skip)]
     pub dir: PathBuf,
@@ -91,6 +93,101 @@ pub struct GestureAction {
     pub id: u8,
     /// Label key `action.<name>`.
     pub name: String,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum Kind {
+    /// On/off: byte `byte` is `on` or `off`.
+    Switch,
+    /// One of `options`: `values` (each `width` bytes, little-endian) from byte `byte` on.
+    Choice,
+    /// `min`…`max` in byte `byte`.
+    Level,
+    /// Read only: the register shown as `format`.
+    Info,
+    /// Sends `command` after a confirmation.
+    Button,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum Format {
+    /// Bytes joined by dots (firmware 3.5.0).
+    Version,
+    Text,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum ButtonCommand {
+    PowerOff,
+    FactoryReset,
+}
+
+/// One row of the settings tab. Labels: `setting.<name>` and, if present, `setting.<name>_hint`.
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Setting {
+    pub name: String,
+    /// Section title key `settings.<section>`; a new title where it changes.
+    pub section: String,
+    pub kind: Kind,
+    pub register: Option<Register>,
+    #[serde(default)]
+    pub byte: usize,
+    #[serde(default = "one")]
+    pub on: u8,
+    #[serde(default)]
+    pub off: u8,
+    #[serde(default)]
+    pub options: Vec<Choice>,
+    #[serde(default = "one_usize")]
+    pub width: usize,
+    #[serde(default)]
+    pub min: u8,
+    #[serde(default)]
+    pub max: u8,
+    /// Level: the neutral value (balance), shown as left/right of it.
+    pub center: Option<u8>,
+    /// [byte, value] pairs written along with every change (an "on" flag the JBL app sets too).
+    #[serde(default)]
+    pub set: Vec<(usize, u8)>,
+    pub format: Option<Format>,
+    pub command: Option<ButtonCommand>,
+    /// Name of a switch setting: this row only counts while that one is on.
+    pub when: Option<String>,
+}
+
+fn one() -> u8 {
+    1
+}
+
+fn one_usize() -> usize {
+    1
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Choice {
+    /// Label key `option.<name>`.
+    pub name: String,
+    pub values: Vec<u32>,
+}
+
+impl Setting {
+    /// The option's bytes, as they go in the register.
+    pub fn option_bytes(&self, c: &Choice) -> Vec<u8> {
+        c.values.iter().flat_map(|v| v.to_le_bytes()[..self.width].to_vec()).collect()
+    }
+
+    /// Which option the register holds now.
+    pub fn current_option(&self, value: &[u8]) -> Option<usize> {
+        self.options.iter().position(|c| {
+            let b = self.option_bytes(c);
+            value.get(self.byte..self.byte + b.len()) == Some(&b[..])
+        })
+    }
 }
 
 impl Profile {
@@ -162,6 +259,16 @@ mod tests {
             }
             if let Some(eq) = &p.eq {
                 assert!(eq.presets.iter().all(|x| x.gains.len() == eq.bands.len()), "{}: preset size", p.name);
+            }
+            for s in &p.settings {
+                let ok = match s.kind {
+                    Kind::Choice => !s.options.is_empty() && s.register.is_some(),
+                    Kind::Level => s.min < s.max && s.center.is_none_or(|c| (s.min..=s.max).contains(&c)),
+                    Kind::Button => s.command.is_some(),
+                    Kind::Switch | Kind::Info => s.register.is_some(),
+                };
+                let when_ok = s.when.as_ref().is_none_or(|w| p.settings.iter().any(|x| &x.name == w && x.kind == Kind::Switch));
+                assert!(ok && when_ok, "{}: setting {}", p.name, s.name);
             }
         }
     }

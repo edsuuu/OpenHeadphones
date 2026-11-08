@@ -7,6 +7,7 @@ mod eq;
 mod find;
 mod gestures;
 mod list;
+mod settings;
 mod sound;
 mod widgets;
 
@@ -40,6 +41,7 @@ pub enum Tab {
     Sound,
     Gestures,
     Find,
+    Settings,
 }
 
 impl Tab {
@@ -48,6 +50,7 @@ impl Tab {
             Tab::Sound => "tab.sound",
             Tab::Gestures => "tab.gestures",
             Tab::Find => "tab.find",
+            Tab::Settings => "tab.settings",
         }
     }
 }
@@ -59,6 +62,10 @@ enum Sheet {
     Gesture(u8),
     /// Confirming the beep on this side.
     Beep(Side),
+    /// Picking an option of setting n.
+    Options(usize),
+    /// Confirming the button of setting n.
+    Confirm(usize),
 }
 
 /// What a click does; also the key of the control's hover/press animation.
@@ -83,6 +90,17 @@ enum Action {
     /// Stops it if beeping, otherwise asks first.
     ToggleBeep(Side),
     ConfirmBeep(Side),
+    /// Settings tab, by index in the profile's settings.
+    SettingSwitch(usize),
+    /// (setting, option)
+    SettingOption(usize, usize),
+    /// Opens the sheet with the options of a setting.
+    PickOption(usize),
+    SettingLevel(usize, u8),
+    /// The slider of a level setting with many steps (dragged).
+    Slider(usize),
+    SettingButton(usize),
+    ConfirmButton(usize),
     CloseSheet,
     /// Click on the dimmed page around a sheet.
     Dismiss,
@@ -133,6 +151,12 @@ pub struct Ui {
     targets: Vec<Target>,
     anim: HashMap<Action, Anim>,
     eq: eq::EqEdit,
+    /// Settings tab: how far it scrolled, how far it can, and the slider being dragged.
+    scroll: f32,
+    scroll_max: f32,
+    slider: Option<settings::Drag>,
+    /// Clicks only count below this y (what scrolled under the header is hidden).
+    clip_top: f32,
     started: Instant,
     /// Decoded photos by file.
     photos: HashMap<PathBuf, Option<Pixmap>>,
@@ -176,6 +200,10 @@ impl Ui {
             targets: vec![],
             anim: HashMap::new(),
             eq: eq::EqEdit::new(0),
+            scroll: 0.0,
+            scroll_max: 0.0,
+            slider: None,
+            clip_top: 0.0,
             started: Instant::now(),
             photos: HashMap::new(),
         }
@@ -237,7 +265,7 @@ impl Ui {
     }
 
     pub fn open_device(&mut self, i: usize) {
-        (self.current, self.detail, self.tab, self.sheet_open) = (i, true, Tab::Sound, false);
+        (self.current, self.detail, self.tab, self.sheet_open, self.scroll) = (i, true, Tab::Sound, false, 0.0);
         let bands = self.current_profile().eq.as_ref().map_or(0, |e| e.bands.len());
         self.eq = eq::EqEdit::new(bands);
         self.sync_eq();
@@ -247,9 +275,11 @@ impl Ui {
     pub fn preview(&mut self, tab: Tab, with_sheet: bool) {
         self.tab = tab;
         let first_gesture = self.current_profile().gestures.first().map(|g| g.id);
+        let first_button = self.current_profile().settings.iter().position(|s| s.kind == profile::Kind::Button);
         self.sheet = match tab {
             Tab::Gestures => first_gesture.map(Sheet::Gesture),
             Tab::Find => Some(Sheet::Beep(Side::Left)),
+            Tab::Settings => first_button.map(Sheet::Confirm),
             Tab::Sound => None,
         }
         .filter(|_| with_sheet);
@@ -290,15 +320,28 @@ impl Ui {
         if self.eq.dragging.is_some() {
             return Some(Action::Curve);
         }
+        if let Some(d) = &self.slider {
+            return Some(Action::Slider(d.setting));
+        }
         let (x, y) = self.pointer?;
         self.targets.iter().rev().find(|t| t.contains(x, y)).map(|t| t.action)
     }
 
     pub fn pointer_moved(&mut self, x: f32, y: f32) -> Out {
         self.pointer = Some((x, y));
+        if self.slider.is_some() {
+            self.drag_slider(x);
+        }
         match self.eq.dragging {
             Some(band) => self.drag_band(band, y, false),
             None => vec![],
+        }
+    }
+
+    /// Mouse wheel / touchpad, in logical px (positive = content goes up).
+    pub fn wheel(&mut self, dy: f32) {
+        if self.detail && self.tab == Tab::Settings && !self.sheet_open {
+            self.scroll = (self.scroll + dy).clamp(0.0, self.scroll_max);
         }
     }
 
@@ -311,6 +354,10 @@ impl Ui {
         self.pressed = Some(a);
         match (a, self.pointer) {
             (Action::Curve, Some((x, y))) => self.start_drag(x, y),
+            (Action::Slider(i), Some((x, _))) => {
+                self.start_slider(i, x);
+                vec![]
+            }
             _ => vec![],
         }
     }
@@ -319,6 +366,9 @@ impl Ui {
         let pressed = self.pressed.take();
         if self.eq.dragging.is_some() {
             return self.end_drag();
+        }
+        if self.slider.is_some() {
+            return self.end_slider();
         }
         match pressed {
             Some(a) if self.hovered() == Some(a) => self.act(a),
@@ -384,6 +434,13 @@ impl Ui {
                 self.sheet_open = false;
                 self.beep(side, true)
             }
+            Action::PickOption(i) => self.open_sheet(Sheet::Options(i)),
+            Action::SettingButton(i) => self.open_sheet(Sheet::Confirm(i)),
+            Action::SettingOption(..) | Action::ConfirmButton(_) => {
+                self.sheet_open = false;
+                self.setting_action(a)
+            }
+            Action::SettingSwitch(_) | Action::SettingLevel(..) | Action::Slider(_) => self.setting_action(a),
             Action::CloseSheet | Action::Dismiss => {
                 self.sheet_open = false;
                 vec![]
@@ -399,7 +456,11 @@ impl Ui {
     // ---------- drawing ----------
 
     fn target(&mut self, p: &Painter, x: f32, y: f32, w: f32, h: f32, action: Action) {
-        self.targets.push(Target { x: x + p.dx, y: y + p.dy, w, h, action });
+        // the part above clip_top is under the header
+        let top = y.max(self.clip_top);
+        if top < y + h {
+            self.targets.push(Target { x: x + p.dx, y: top + p.dy, w, h: y + h - top, action });
+        }
     }
 
     fn glass(&self, a: Action, p: &Painter) -> Glass {
@@ -448,6 +509,8 @@ impl Ui {
         match self.sheet.filter(|_| self.sheet_t > 0.001) {
             Some(Sheet::Gesture(g)) => self.draw_gesture_sheet(&mut p, g),
             Some(Sheet::Beep(side)) => self.draw_beep_sheet(&mut p, side),
+            Some(Sheet::Options(i)) => self.draw_options_sheet(&mut p, i),
+            Some(Sheet::Confirm(i)) => self.draw_confirm_sheet(&mut p, i),
             None => {}
         }
 

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use tiny_skia::Pixmap;
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
+use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
 use winit::monitor::MonitorHandle;
@@ -222,6 +222,14 @@ impl ApplicationHandler<AppEvent> for App {
             }
             WindowEvent::CursorLeft { .. } => {
                 self.ui.pointer_left();
+                self.dirty = true;
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let dy = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => -y * 48.0,
+                    MouseScrollDelta::PixelDelta(d) => -d.y as f32 / self.scale,
+                };
+                self.ui.wheel(dy);
                 self.dirty = true;
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => {
