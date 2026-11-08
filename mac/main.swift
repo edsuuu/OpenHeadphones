@@ -754,7 +754,7 @@ struct DetailPage: View {
                     .background(Circle().fill(RadialGradient(colors: [Color(hex: 0xFF9244, alpha: 0.09), .clear],
                                                              center: .center, startRadius: 0, endRadius: 64)))
                 VStack(spacing: 11) {
-                    ForEach(batteryRows(s.battery), id: \.0) { r in
+                    ForEach(batteryRows(s.connected ? s.battery : nil), id: \.0) { r in
                         HStack(spacing: 10) {
                             Text(t(r.0)).font(.system(size: 12)).foregroundStyle(ink2).frame(width: 58, alignment: .leading)
                             Bar(level: r.1 ?? 0, charging: r.2, width: nil)
