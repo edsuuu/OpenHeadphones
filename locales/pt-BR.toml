@@ -188,6 +188,7 @@ check = "Procurar atualização"
 checking = "Procurando…"
 up_to_date = "Esta é a versão mais recente"
 install = "Atualizar para a {version}"
+available = "Versão {version} disponível"
 installing = "Atualizando para a {version}…"
 failed = "Não deu para atualizar · tentar de novo"
 

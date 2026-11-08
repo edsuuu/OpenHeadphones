@@ -95,7 +95,7 @@ impl Ui {
         let y = top + 62.0;
         let action = match self.update_status {
             Status::Idle | Status::UpToDate | Status::Failed => Some(Action::CheckUpdate),
-            Status::Available(_) => Some(Action::InstallUpdate),
+            Status::Available(_) => self.installable.then_some(Action::InstallUpdate),
             Status::Checking | Status::Installing(_) => None,
         };
         let mut rows = vec![(40.0, None)];
@@ -116,7 +116,8 @@ impl Ui {
             Status::Idle => (t("update.check"), ACCENT1),
             Status::Checking => (t("update.checking"), TEXT2),
             Status::UpToDate => (t("update.up_to_date"), TEXT2),
-            Status::Available(v) => (tf("update.install", &[("version", v)]), ACCENT1),
+            Status::Available(v) if self.installable => (tf("update.install", &[("version", v)]), ACCENT1),
+            Status::Available(v) => (tf("update.available", &[("version", v)]), TEXT2),
             Status::Installing(v) => (tf("update.installing", &[("version", v)]), TEXT2),
             Status::Failed => (t("update.failed"), WARNING),
         };

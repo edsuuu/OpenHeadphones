@@ -42,11 +42,14 @@ fn check_update(proxy: EventLoopProxy<AppEvent>, install: bool) {
             let _ = proxy.send_event(AppEvent::Update(s));
         };
         send(update::Status::Checking);
+        // a build in target/ or a .deb never replaces itself: it only says a new one exists
+        let install = install && update::can_install();
         match update::latest() {
-            None => send(update::Status::Failed),
-            Some(v) if !update::newer(&v) => send(update::Status::UpToDate),
-            Some(v) if !install => send(update::Status::Available(v)),
-            Some(v) => {
+            Err(()) => send(update::Status::Failed),
+            Ok(None) => send(update::Status::UpToDate),
+            Ok(Some(v)) if !update::newer(&v) => send(update::Status::UpToDate),
+            Ok(Some(v)) if !install => send(update::Status::Available(v)),
+            Ok(Some(v)) => {
                 send(update::Status::Installing(v));
                 match update::install() {
                     Ok(()) => {

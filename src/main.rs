@@ -7,7 +7,7 @@
 //! - `profile` + `devices/`: per-model data. `i18n` + `locales/`: texts, read at runtime.
 //!
 //! Flags: `--open` (show the panel at start), `--pinned` (does not close on focus loss),
-//! `--snapshot <dir>` (render the screens to PNGs), `--lang <code>` (e.g. en, pt-BR),
+//! `--snapshot <dir>` (render the screens to PNGs; `--scale 2` for 2×), `--demo <dir>` (the panel in motion, as frames), `--lang <code>` (e.g. en, pt-BR),
 //! `--debug` (log every Bluetooth packet to stderr).
 
 mod app;
@@ -39,7 +39,11 @@ fn main() {
     update::clean_up();
     let profiles = profile::load_all();
     if has("--snapshot") {
-        return snapshot::run(value("--snapshot").unwrap_or("."), profiles);
+        let scale = value("--scale").and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        return snapshot::run(value("--snapshot").unwrap_or("."), profiles, scale);
+    }
+    if has("--demo") {
+        return snapshot::demo(value("--demo").unwrap_or("."), profiles);
     }
 
     #[allow(unused_mut)]

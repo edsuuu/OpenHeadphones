@@ -181,6 +181,8 @@ pub struct Ui {
     pub update_status: update::Status,
     pub app_request: Option<AppRequest>,
     auto_update: bool,
+    /// This copy may replace itself (not a dev build in target/, not a .deb).
+    installable: bool,
 }
 
 fn approach(v: &mut f32, target: f32, dt: f32, speed: f32) -> bool {
@@ -229,6 +231,7 @@ impl Ui {
             update_status: update::Status::Idle,
             app_request: None,
             auto_update: update::auto(),
+            installable: update::can_install(),
         }
     }
 

@@ -9,7 +9,9 @@ use std::process::Command;
 const REPO: &str = "edsuuu/jbl-headphones";
 #[cfg(windows)]
 const ASSET: &str = "jbl-headphones-windows-x64.zip";
-#[cfg(not(windows))]
+#[cfg(all(not(windows), target_arch = "aarch64"))]
+const ASSET: &str = "jbl-headphones-linux-arm64.tar.gz";
+#[cfg(all(not(windows), not(target_arch = "aarch64")))]
 const ASSET: &str = "jbl-headphones-linux-x64.tar.gz";
 
 /// Updating, as the panel shows it.
@@ -46,13 +48,29 @@ fn command(program: &str) -> Command {
     c
 }
 
-/// The latest release's version: /releases/latest redirects to /releases/tag/v<version>.
-pub fn latest() -> Option<String> {
-    let out = command("curl").args(["-sI", &format!("https://github.com/{REPO}/releases/latest")]).output().ok()?;
+/// The latest release's version: /releases/latest redirects to /releases/tag/v<version>, or to
+/// /releases while there is none (`Ok(None)`). `Err`: GitHub could not be reached.
+pub fn latest() -> Result<Option<String>, ()> {
+    let out = command("curl").args(["-sI", &format!("https://github.com/{REPO}/releases/latest")]).output().map_err(|_| ())?;
     let head = String::from_utf8_lossy(&out.stdout);
-    let location = head.lines().find(|l| l.to_ascii_lowercase().starts_with("location:"))?;
-    let (_, version) = location.trim().rsplit_once("/tag/v")?;
-    version.starts_with(|c: char| c.is_ascii_digit()).then(|| version.to_string())
+    let location = head.lines().find(|l| l.to_ascii_lowercase().starts_with("location:")).ok_or(())?;
+    let version = location.trim().rsplit_once("/tag/v").map(|(_, v)| v);
+    Ok(version.filter(|v| v.starts_with(|c: char| c.is_ascii_digit())).map(str::to_string))
+}
+
+/// Whether this copy may replace itself: not a build in `target/` (it would turn into the release
+/// and hide changes being made), nor one installed where the user cannot write (a .deb: apt updates
+/// it).
+pub fn can_install() -> bool {
+    let Ok(exe) = std::env::current_exe() else { return false };
+    let Some(dir) = exe.parent() else { return false };
+    if exe.components().any(|c| c.as_os_str() == "target") {
+        return false;
+    }
+    let probe = dir.join(".jbl-update-probe");
+    let ok = std::fs::write(&probe, b"").is_ok();
+    let _ = std::fs::remove_file(probe);
+    ok
 }
 
 fn run(c: &mut Command) -> Result<(), String> {

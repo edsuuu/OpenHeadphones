@@ -188,6 +188,7 @@ check = "Check for updates"
 checking = "Checking…"
 up_to_date = "This is the latest version"
 install = "Update to {version}"
+available = "Version {version} is available"
 installing = "Updating to {version}…"
 failed = "Couldn't update · try again"
 

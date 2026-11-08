@@ -21,7 +21,8 @@ const REGULAR: Candidates = [
 const BOLD: Candidates = [
     (r"C:\Windows\Fonts\seguisb.ttf", None),
     ("/System/Library/Fonts/SFNS.ttf", Some(600.0)),
-    ("/usr/share/fonts/truetype/ubuntu/Ubuntu-M.ttf", None),
+    // Medium is barely heavier than Regular next to Segoe Semibold / SF 600: Bold reads like them
+    ("/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf", None),
     ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", None),
 ];
 
