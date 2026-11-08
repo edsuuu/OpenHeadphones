@@ -1,0 +1,92 @@
+# Builds Windows and Linux (Rust) and macOS (Swift, mac/) on every push; a v* tag also publishes
+# them as a GitHub release. The asset names are what the apps' auto update downloads: keep them.
+name: build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Version from Cargo.toml (a tag must match it, or the update would loop)
+        run: |
+          v=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF_NAME#v}" != "$v" ]]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $v"; exit 1
+          fi
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable --no-self-update && rustup default stable
+      - run: cargo test
+      - run: cargo build --release
+      - name: Package (program, devices/, locales/ at the top of the zip)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item target/release/jbl-headphones.exe dist/
+          Copy-Item -Recurse devices, locales dist/
+          Compress-Archive -Path dist/* -DestinationPath jbl-headphones-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: jbl-headphones-windows-x64.zip
+
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - run: rustup update stable --no-self-update && rustup default stable
+      - run: cargo test
+      - run: cargo build --release
+      - name: Package (program, devices/, locales/ at the top of the archive)
+        run: |
+          mkdir dist && cp target/release/jbl-headphones dist/ && cp -r devices locales dist/
+          tar -czf jbl-headphones-linux-x64.tar.gz -C dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: jbl-headphones-linux-x64.tar.gz
+
+  mac:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JBL Headphones.app (universal, ad-hoc signed) zipped
+        run: bash mac/bundle.sh "${{ needs.version.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/jbl-headphones-mac.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes assets/*

@@ -179,6 +179,18 @@ min30 = "30 min"
 min60 = "1 h"
 min120 = "2 h"
 
+[update]
+title = "Aplicativo"
+version = "Versão"
+auto = "Atualizar sozinho"
+auto_hint = "Instala as versões novas quando o app abre"
+check = "Procurar atualização"
+checking = "Procurando…"
+up_to_date = "Esta é a versão mais recente"
+install = "Atualizar para a {version}"
+installing = "Atualizando para a {version}…"
+failed = "Não deu para atualizar · tentar de novo"
+
 [error]
 no_font = "Nenhuma fonte do sistema encontrada"
 window = "Não deu para criar a janela"

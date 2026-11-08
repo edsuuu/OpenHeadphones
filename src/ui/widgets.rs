@@ -3,7 +3,7 @@
 
 use tiny_skia::{Color, PathBuilder, Shader};
 
-use super::{Action, HEIGHT, RADIUS, Ui, WIDTH};
+use super::{Action, RADIUS, Ui, WIDTH};
 use crate::device::NoiseMode;
 use crate::render::painter::{Glass, Painter};
 use crate::render::{GREEN, SHEET, TEXT2, TEXT3, color, icons, shapes};
@@ -143,12 +143,13 @@ impl Ui {
 
     /// Dims the page and slides a sheet `h` tall up from the bottom; returns its top.
     pub(super) fn sheet_frame(&mut self, p: &mut Painter, h: f32) -> f32 {
-        let t = self.sheet_t;
-        p.fill(&shapes::rounded_rect(0.0, 0.0, WIDTH, HEIGHT, 0.0), Shader::SolidColor(color(0, 0.55 * t)));
+        // from the bottom of the panel as tall as it is now (the list is shorter than a device page)
+        let (t, ph) = (self.sheet_t, self.height);
+        p.fill(&shapes::rounded_rect(0.0, 0.0, WIDTH, ph, 0.0), Shader::SolidColor(color(0, 0.55 * t)));
         if self.sheet_open {
-            self.target(p, 0.0, 0.0, WIDTH, HEIGHT, Action::Dismiss);
+            self.target(p, 0.0, 0.0, WIDTH, ph, Action::Dismiss);
         }
-        let top = HEIGHT - h * t;
+        let top = ph - h * t;
         // taller than needed: the panel's rounded bottom clips it
         p.fill(&shapes::rounded_rect(0.0, top, WIDTH, h + 40.0, RADIUS), Shader::SolidColor(color(SHEET, 1.0)));
         p.stroke(&shapes::rounded_rect(0.5, top + 0.5, WIDTH - 1.0, h + 40.0, RADIUS - 0.5), Shader::SolidColor(color(0xFFFFFF, 0.09)), 1.0);

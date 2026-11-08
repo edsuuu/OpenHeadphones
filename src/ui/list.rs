@@ -6,7 +6,8 @@ use super::widgets::{battery_bar, mode_icon};
 use super::{Action, CARD_H, LIST_Y, Ui, WIDTH, display_name};
 use crate::i18n::{t, tf};
 use crate::render::painter::Painter;
-use crate::render::{ACCENT1, GREEN, TEXT, TEXT2, TEXT3, color, icons, shapes};
+use crate::render::{ACCENT1, GREEN, TEXT, TEXT2, TEXT3, WARNING, color, icons, shapes};
+use crate::update::{self, Status};
 
 impl Ui {
     pub(super) fn draw_list(&mut self, p: &mut Painter) {
@@ -16,7 +17,11 @@ impl Ui {
             1 => t("list.one_connected"),
             n => tf("list.many_connected", &[("n", &n)]),
         };
-        p.text(WIDTH - 16.0, 31.0, &sub, 11.0, false, color(TEXT2, 1.0), 1.0);
+        p.text(WIDTH - 54.0, 31.0, &sub, 11.0, false, color(TEXT2, 1.0), 1.0);
+        // the app's own settings (version, updates)
+        self.target(p, WIDTH - 50.0, 8.0, 42.0, 40.0, Action::AppSettings);
+        p.glass(WIDTH - 44.0, 13.0, 28.0, 28.0, 14.0, self.glass(Action::AppSettings));
+        p.icon(icons::SLIDERS, WIDTH - 30.0, 27.0, 14.0, color(TEXT, 1.0), 1.8);
 
         if self.devices.is_empty() {
             let profile = self.showcase();
@@ -79,5 +84,42 @@ impl Ui {
             }
             p.alpha = alpha;
         }
+    }
+
+    /// The app's own settings: its version and updating it (Windows and Linux; on macOS the
+    /// release is the Swift app, which updates itself).
+    pub(super) fn draw_app_sheet(&mut self, p: &mut Painter) {
+        let updates = !cfg!(target_os = "macos");
+        let top = self.sheet_frame(p, if updates { 230.0 } else { 136.0 });
+        p.text(WIDTH / 2.0, top + 42.0, &t("update.title"), 15.0, true, color(TEXT, 1.0), 0.5);
+        let y = top + 62.0;
+        let action = match self.update_status {
+            Status::Idle | Status::UpToDate | Status::Failed => Some(Action::CheckUpdate),
+            Status::Available(_) => Some(Action::InstallUpdate),
+            Status::Checking | Status::Installing(_) => None,
+        };
+        let mut rows = vec![(40.0, None)];
+        if updates {
+            rows.extend([(50.0, None), (44.0, action.filter(|_| self.sheet_open))]);
+        }
+        self.group(p, y, &rows);
+        p.text(30.0, y + 24.5, &t("update.version"), 12.0, false, color(TEXT2, 1.0), 0.0);
+        p.text(WIDTH - 30.0, y + 24.5, update::current(), 12.0, true, color(TEXT, 1.0), 1.0);
+        if !updates {
+            return;
+        }
+        let y = y + 40.0;
+        p.text(30.0, y + 22.0, &t("update.auto"), 12.0, false, color(TEXT, 1.0), 0.0);
+        p.text(30.0, y + 37.0, &t("update.auto_hint"), 10.0, false, color(TEXT2, 1.0), 0.0);
+        self.switch(p, WIDTH - 76.0, y + 11.0, self.auto_update, self.sheet_open, Action::AutoUpdate);
+        let (text, c) = match &self.update_status {
+            Status::Idle => (t("update.check"), ACCENT1),
+            Status::Checking => (t("update.checking"), TEXT2),
+            Status::UpToDate => (t("update.up_to_date"), TEXT2),
+            Status::Available(v) => (tf("update.install", &[("version", v)]), ACCENT1),
+            Status::Installing(v) => (tf("update.installing", &[("version", v)]), TEXT2),
+            Status::Failed => (t("update.failed"), WARNING),
+        };
+        p.text(WIDTH / 2.0, y + 50.0 + 26.5, &text, 12.0, action.is_some(), color(c, 1.0), 0.5);
     }
 }

@@ -179,6 +179,18 @@ min30 = "30 min"
 min60 = "1 h"
 min120 = "2 h"
 
+[update]
+title = "App"
+version = "Version"
+auto = "Update automatically"
+auto_hint = "Installs new versions when the app starts"
+check = "Check for updates"
+checking = "Checking…"
+up_to_date = "This is the latest version"
+install = "Update to {version}"
+installing = "Updating to {version}…"
+failed = "Couldn't update · try again"
+
 [error]
 no_font = "No system font found"
 window = "Could not create the window"

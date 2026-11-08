@@ -21,6 +21,7 @@ use tiny_skia::{Color, FillRule, Mask, Pixmap, PremultipliedColorU8, Shader};
 use crate::device::{Command, DeviceState, NoiseMode};
 use crate::i18n::t;
 use crate::platform;
+use crate::update;
 use crate::profile::{self, Profile, Side};
 use crate::render::fonts::Fonts;
 use crate::render::painter::{Glass, Painter};
@@ -70,6 +71,15 @@ enum Sheet {
     Options(usize),
     /// Confirming the button of setting n.
     Confirm(usize),
+    /// The app's own settings: version and updates.
+    App,
+}
+
+/// What the app (not a device) is asked to do.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AppRequest {
+    Check,
+    Install,
 }
 
 /// What a click does; also the key of the control's hover/press animation.
@@ -108,6 +118,10 @@ enum Action {
     CloseSheet,
     /// Click on the dimmed page around a sheet.
     Dismiss,
+    AppSettings,
+    AutoUpdate,
+    CheckUpdate,
+    InstallUpdate,
 }
 
 struct Target {
@@ -163,6 +177,10 @@ pub struct Ui {
     started: Instant,
     /// Decoded photos by file.
     photos: HashMap<PathBuf, Option<Pixmap>>,
+    /// Updating the app: shown in its sheet, asked of the app through `app_request`.
+    pub update_status: update::Status,
+    pub app_request: Option<AppRequest>,
+    auto_update: bool,
 }
 
 fn approach(v: &mut f32, target: f32, dt: f32, speed: f32) -> bool {
@@ -208,6 +226,9 @@ impl Ui {
             clip_top: 0.0,
             started: Instant::now(),
             photos: HashMap::new(),
+            update_status: update::Status::Idle,
+            app_request: None,
+            auto_update: update::auto(),
         }
     }
 
@@ -287,6 +308,11 @@ impl Ui {
         .filter(|_| with_sheet);
         self.sheet_open = self.sheet.is_some();
         self.sheet_t = self.sheet_open as u8 as f32;
+    }
+
+    /// For `--snapshot`: the app's sheet open.
+    pub fn preview_app_sheet(&mut self) {
+        (self.sheet, self.sheet_open, self.sheet_t) = (Some(Sheet::App), true, 1.0);
     }
 
     /// Esc: closes the open sheet; `false` when there is none (then the panel closes).
@@ -443,6 +469,16 @@ impl Ui {
                 self.setting_action(a)
             }
             Action::SettingSwitch(_) | Action::SettingLevel(..) | Action::Slider(_) => self.setting_action(a),
+            Action::AppSettings => self.open_sheet(Sheet::App),
+            Action::AutoUpdate => {
+                self.auto_update = !self.auto_update;
+                update::set_auto(self.auto_update);
+                vec![]
+            }
+            Action::CheckUpdate | Action::InstallUpdate => {
+                self.app_request = Some(if a == Action::InstallUpdate { AppRequest::Install } else { AppRequest::Check });
+                vec![]
+            }
             Action::CloseSheet | Action::Dismiss => {
                 self.sheet_open = false;
                 vec![]
@@ -530,6 +566,7 @@ impl Ui {
             Some(Sheet::Beep(side)) => self.draw_beep_sheet(&mut p, side),
             Some(Sheet::Options(i)) => self.draw_options_sheet(&mut p, i),
             Some(Sheet::Confirm(i)) => self.draw_confirm_sheet(&mut p, i),
+            Some(Sheet::App) => self.draw_app_sheet(&mut p),
             None => {}
         }
 

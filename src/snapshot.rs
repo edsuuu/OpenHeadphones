@@ -62,6 +62,11 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
     u.settle();
     u.draw(&mut pm, s, &fonts);
     save(&pm, "list");
+    u.preview_app_sheet();
+    u.draw(&mut pm, s, &fonts);
+    save(&pm, "app");
+    u.escape();
+    u.step(1.0);
 
     u.open_device(0);
     let screens = [

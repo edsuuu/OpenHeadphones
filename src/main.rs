@@ -21,6 +21,7 @@ mod protocol;
 mod render;
 mod snapshot;
 mod ui;
+mod update;
 
 use std::sync::Mutex;
 
@@ -35,6 +36,7 @@ fn main() {
     let value = |flag: &str| args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).map(String::as_str);
     i18n::init(value("--lang"));
     bluetooth::DEBUG.store(has("--debug"), std::sync::atomic::Ordering::Relaxed);
+    update::clean_up();
     let profiles = profile::load_all();
     if has("--snapshot") {
         return snapshot::run(value("--snapshot").unwrap_or("."), profiles);

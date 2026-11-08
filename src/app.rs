@@ -20,11 +20,46 @@ use crate::platform::{Anchor, tray};
 use crate::render::fonts::Fonts;
 use crate::render::genie::{genie, smooth};
 use crate::ui::{self, Ui};
+use crate::update;
 
 pub enum AppEvent {
     Open(Option<Anchor>),
     Quit,
     Device(String, DeviceState),
+    Update(update::Status),
+    /// A new version is in place: start it.
+    Restart,
+}
+
+/// In the background: looks for a newer release and, with `install`, puts it in place (then the
+/// app restarts). macOS releases are the Swift app: the Rust one there never updates itself.
+fn check_update(proxy: EventLoopProxy<AppEvent>, install: bool) {
+    if cfg!(target_os = "macos") {
+        return;
+    }
+    std::thread::spawn(move || {
+        let send = |s| {
+            let _ = proxy.send_event(AppEvent::Update(s));
+        };
+        send(update::Status::Checking);
+        match update::latest() {
+            None => send(update::Status::Failed),
+            Some(v) if !update::newer(&v) => send(update::Status::UpToDate),
+            Some(v) if !install => send(update::Status::Available(v)),
+            Some(v) => {
+                send(update::Status::Installing(v));
+                match update::install() {
+                    Ok(()) => {
+                        let _ = proxy.send_event(AppEvent::Restart);
+                    }
+                    Err(e) => {
+                        eprintln!("[update] {e}");
+                        send(update::Status::Failed);
+                    }
+                }
+            }
+        }
+    });
 }
 
 #[derive(Clone, Copy)]
@@ -205,6 +240,8 @@ impl ApplicationHandler<AppEvent> for App {
         self.surface = Some(Surface::new(window.clone()));
         self.window = Some(window);
         self.tray = tray::create(self.proxy.clone());
+        // updates: looked for at every start; installed right away when automatic
+        check_update(self.proxy.clone(), update::auto());
         if self.open_at_start {
             self.open(el, None);
         }
@@ -217,6 +254,11 @@ impl ApplicationHandler<AppEvent> for App {
                 self.dirty = true;
             }
             AppEvent::Quit => el.exit(),
+            AppEvent::Update(s) => {
+                self.ui.update_status = s;
+                self.dirty = true;
+            }
+            AppEvent::Restart => update::restart(),
             AppEvent::Open(a) => match self.phase {
                 Phase::Opening(_) | Phase::Open => self.close(),
                 // clicking the icon took the focus away and already closed it: closing was the point
@@ -250,6 +292,9 @@ impl ApplicationHandler<AppEvent> for App {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => {
                 let c = if state == ElementState::Pressed { self.ui.press() } else { self.ui.release() };
                 self.send(c);
+                if let Some(r) = self.ui.app_request.take() {
+                    check_update(self.proxy.clone(), r == ui::AppRequest::Install);
+                }
                 self.dirty = true;
             }
             WindowEvent::KeyboardInput {
