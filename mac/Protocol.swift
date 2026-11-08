@@ -63,8 +63,9 @@ struct DeviceState: Equatable {
 
 enum Command {
     case mode(NoiseMode), adaptive(Bool), ancLevel(UInt8), ambientLevel(UInt8)
-    /// (frequency Hz, gain dB) per band; nil turns the EQ off.
-    case eq([(freq: Float, gain: Float)]?)
+    /// The preset's category (230 = the user's own curve) and (frequency Hz, gain dB) per band;
+    /// nil turns the EQ off.
+    case eq((category: UInt8, bands: [(freq: Float, gain: Float)])?)
     /// The whole list, as the JBL app sends it.
     case gestures([Touch])
     /// true beeps, false stops, nil leaves that side alone.
@@ -183,9 +184,11 @@ enum JBL {
         }
     }
 
-    /// EQ "Q×10" (sub 3) in category 230 (custom) or 0 (off).
-    static func encodeEq(_ bands: [(freq: Float, gain: Float)]?) -> [UInt8] {
-        var p: [UInt8] = [3, bands == nil ? 0 : 230]
+    /// EQ "Q×10" (sub 3) in the preset's category (230 = custom, 0 = off): without it neither the
+    /// headphones nor the phone app know which preset is on.
+    static func encodeEq(_ eq: (category: UInt8, bands: [(freq: Float, gain: Float)])?) -> [UInt8] {
+        let bands = eq?.bands
+        var p: [UInt8] = [3, eq?.category ?? 0]
         // ponytail: calibration 0, what the app sends when libcalibrationLib does not load (see jbl.rs)
         p += f32(0)
         p.append(bands == nil ? 0 : 48) // kHz
@@ -334,10 +337,11 @@ extension JBL {
         check(encode(.eq(nil)) == hex("aa a2 10 00 03 00 00000000 00 00000000 00000000 00"), "eq off")
         var g = [Float](repeating: 0, count: 10)
         (g[1], g[2]) = (4, 4)
-        let p = encode(.eq(eqOf(g)))
+        let p = encode(.eq((230, eqOf(g))))
         check(p.count == 120, "eq length")
         check(Array(p[..<20]) == hex("aa a2 74 00 03 e6 00000000 30 00000000 00000000 0a"), "eq head")
         check(Array(p[30..<40]) == hex("01 00008040 00008042 0a"), "64 Hz band, +4 dB, Q 1.0")
+        check(encode(.eq((7, eqOf(g))))[5] == 7, "preset category")
         check(encode(.gestures([Touch(gesture: 6, action: 0x0b), Touch(gesture: 9, action: 8)])) == hex("aa 77 05 00 06 0b 09 08"), "gestures")
         check(encode(.beep(left: true, right: nil)) == hex("aa 23 03 00 01 ff"), "beep")
 
@@ -364,7 +368,7 @@ extension JBL {
         check(!apply(&s, design), "design eq ignored")
         var g1 = [Float](repeating: 0, count: 10)
         g1[1] = 4
-        var echo = encodeEq(eqOf(g1))
+        var echo = encodeEq((230, eqOf(g1)))
         echo[4] = 4
         apply(&s, echo)
         check(s.eq == .some(g1), "custom eq read")

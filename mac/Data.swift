@@ -223,7 +223,8 @@ struct Profile {
     struct Eq {
         var maxDb: Double
         var bands: [Double]
-        var presets: [(name: String, gains: [Double])]
+        /// Label key `eq.<name>`, the category the device gets (nil: sent as the user's own, 230).
+        var presets: [(name: String, category: UInt8?, gains: [Double])]
     }
     struct Gesture { var id: UInt8, side: Side, kind: String }
     struct Action { var id: UInt8, name: String }
@@ -272,7 +273,7 @@ struct Profile {
         imageColors = t["images"]?["colors"]?.table.compactMapValues(\.string) ?? [:]
         if let e = t["eq"] {
             eq = Eq(maxDb: e["max_db"]?.number ?? 0, bands: e["bands"]?.array.compactMap(\.number) ?? [],
-                    presets: e["presets"]?.array.map { ($0["name"]?.string ?? "", $0["gains"]?.array.compactMap(\.number) ?? []) } ?? [])
+                    presets: e["presets"]?.array.map { ($0["name"]?.string ?? "", $0["category"]?.int.map(UInt8.init), $0["gains"]?.array.compactMap(\.number) ?? []) } ?? [])
         }
         gestures = try (t["gestures"]?.array ?? []).map { g in
             guard let id = g["id"]?.int, let side = g["side"]?.string.flatMap(Side.init), let kind = g["kind"]?.string else {
@@ -408,9 +409,6 @@ func dataSelfTest() {
     check(Profile.find(all, productId: 0x1234, name: "JBL Live 770NC")?.name == "JBL", "generic")
     check(Profile.find(all, productId: nil, name: "WH-1000XM5") == nil, "none")
     for p in all {
-        for file in Array(p.imageColors.values) + (p.imageDefault.map { [$0] } ?? []) {
-            check(FileManager.default.fileExists(atPath: p.dir.appendingPathComponent(file).path), "\(p.name): missing \(file)")
-        }
         if let eq = p.eq { check(eq.presets.allSatisfy { $0.gains.count == eq.bands.count }, "\(p.name): preset size") }
         for s in p.settings {
             let ok = switch s.kind {

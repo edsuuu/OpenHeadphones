@@ -192,7 +192,8 @@ final class Model: ObservableObject {
         guard let eq = profile.eq else { return }
         let g = eqOn ? gains.map(Float.init) : nil
         edit { $0.eq = .some(g) }
-        send(.eq(g.map { zip(eq.bands, $0).map { (Float($0), $1) } }))
+        let category = presetIndex().flatMap { eq.presets[$0].category } ?? 230
+        send(.eq(g.map { (category, zip(eq.bands, $0).map { (Float($0), $1) }) }))
     }
 
     func drag(band: Int, gain: Double) {
