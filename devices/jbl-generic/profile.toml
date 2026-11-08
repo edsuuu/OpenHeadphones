@@ -1,0 +1,6 @@
+# Any other JBL headphones: only what every model on the JBL protocol shares.
+# A model-specific folder (longer name prefix or a product id) wins over this one.
+
+name = "JBL"
+name_prefixes = ["JBL"]
+noise_modes = ["anc", "ambient", "talk_thru", "off"]

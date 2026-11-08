@@ -1,0 +1,56 @@
+# JBL Tune Flex 2 — values taken from the JBL Headphones app 5.38.2 (TuneFlex2Control).
+# Everything here is read at runtime: another model = another folder like this one.
+# TOML: plain keys go before the first [table], or they end up inside it.
+
+name = "JBL Tune Flex 2"
+# Product id the device reports in its info packet (0x12), and the Bluetooth name prefixes.
+product_ids = [0x210e]
+name_prefixes = ["JBL Tune Flex 2"]
+
+noise_modes = ["anc", "ambient", "talk_thru", "off"]
+adaptive_anc = true
+anc_levels = 7
+find_buds = true
+
+# Touch gestures: id = GestureType ordinal in the JBL app; kind = label key (gesture.<kind>).
+gestures = [
+    { id = 6, side = "left", kind = "tap" },
+    { id = 7, side = "left", kind = "double_tap" },
+    { id = 8, side = "left", kind = "triple_tap" },
+    { id = 12, side = "left", kind = "hold" },
+    { id = 9, side = "right", kind = "tap" },
+    { id = 10, side = "right", kind = "double_tap" },
+    { id = 11, side = "right", kind = "triple_tap" },
+    { id = 14, side = "right", kind = "hold" },
+]
+
+# Actions a gesture can trigger: id = GestureActionType byte; name = label key (action.<name>).
+actions = [
+    { id = 0x00, name = "none" },
+    { id = 0x08, name = "play_pause" },
+    { id = 0x05, name = "next" },
+    { id = 0x06, name = "previous" },
+    { id = 0x01, name = "volume_up" },
+    { id = 0x02, name = "volume_down" },
+    { id = 0x0B, name = "anc_ambient" },
+    { id = 0x09, name = "anc_ambient_off" },
+    { id = 0x04, name = "talk_thru" },
+    { id = 0xA1, name = "voice_assistant" },
+]
+
+[images]
+default = "black.png"
+# color id reported by the device → photo in this folder
+colors = { 0 = "black.png", 1 = "white.png", 2 = "blue.png", 14 = "ghost-black.png", 15 = "ghost-purple.png", 16 = "ghost-white.png" }
+
+[eq]
+max_db = 6.0
+bands = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+presets = [
+    { name = "flat", gains = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { name = "bass", gains = [5, 5, 4, 2, 0.5, 0, 0, 0, 0, 0] },
+    { name = "energy", gains = [4, 3.5, 2, 0, -1, -1, 0, 2, 3.5, 4] },
+    { name = "vocal", gains = [-2, -1.5, -1, 0, 1.5, 3, 3.5, 2, 0.5, 0] },
+    { name = "bright", gains = [0, 0, 0, 0, 0, 0.5, 1.5, 3, 4, 4.5] },
+    { name = "soft", gains = [2, 1.5, 1, 0.5, 0, -0.5, -1, -2, -3, -3.5] },
+]
