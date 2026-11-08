@@ -49,21 +49,66 @@ jobs:
 
   linux:
     needs: version
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # tar: the name the app updates from; deb: Debian's name for the architecture
+          - { runner: ubuntu-22.04, tar: x64, deb: amd64 }
+          - { runner: ubuntu-22.04-arm, tar: arm64, deb: arm64 }
+    # 22.04: the oldest glibc still supported, so the binary also runs on older distros
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-      - run: rustup update stable --no-self-update && rustup default stable
+      # the arm runner's image may come without rustup
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo test
       - run: cargo build --release
       - name: Package (program, devices/, locales/ at the top of the archive)
         run: |
           mkdir dist && cp target/release/jbl-headphones dist/ && cp -r devices locales dist/
-          tar -czf jbl-headphones-linux-x64.tar.gz -C dist .
+          tar -czf jbl-headphones-linux-${{ matrix.tar }}.tar.gz -C dist .
+      - name: .deb (the program in /usr/lib/jbl-headphones, which it finds through the /usr/bin link)
+        run: |
+          pkg=deb/usr/lib/jbl-headphones
+          mkdir -p "$pkg" deb/usr/bin deb/usr/share/applications deb/DEBIAN
+          cp -r dist/. "$pkg/"
+          ln -s ../lib/jbl-headphones/jbl-headphones deb/usr/bin/jbl-headphones
+          cat > deb/usr/share/applications/jbl-headphones.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=JBL Headphones
+          Comment=Battery, noise cancelling, equalizer and settings of JBL headphones
+          Exec=jbl-headphones
+          Icon=audio-headphones
+          Categories=AudioVideo;Audio;Settings;
+          EOF
+          cat > deb/DEBIAN/control <<EOF
+          Package: jbl-headphones
+          Version: ${{ needs.version.outputs.version }}
+          Architecture: ${{ matrix.deb }}
+          Maintainer: edsuuu <https://github.com/edsuuu>
+          Depends: libdbus-1-3, bluez
+          Section: sound
+          Priority: optional
+          Homepage: https://edsuuu.github.io/jbl-headphones/
+          Description: Tray app for JBL headphones
+           Battery, noise cancelling, ambient sound, equalizer, touch gestures and settings of
+           JBL headphones. Independent project, not affiliated with JBL or Harman.
+          EOF
+          dpkg-deb --root-owner-group --build deb jbl-headphones-linux-${{ matrix.deb }}.deb
+          dpkg-deb --info jbl-headphones-linux-${{ matrix.deb }}.deb
+      - name: The installed .deb finds its data through the link
+        run: |
+          sudo apt-get install -y ./jbl-headphones-linux-${{ matrix.deb }}.deb
+          test "$(readlink -f /usr/bin/jbl-headphones)" = /usr/lib/jbl-headphones/jbl-headphones
+          test -d /usr/lib/jbl-headphones/devices && test -d /usr/lib/jbl-headphones/locales
       - uses: actions/upload-artifact@v4
         with:
-          name: linux
-          path: jbl-headphones-linux-x64.tar.gz
+          name: linux-${{ matrix.tar }}
+          path: |
+            jbl-headphones-linux-${{ matrix.tar }}.tar.gz
+            jbl-headphones-linux-${{ matrix.deb }}.deb
 
   mac:
     needs: version
