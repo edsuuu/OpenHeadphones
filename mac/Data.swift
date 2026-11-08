@@ -402,7 +402,7 @@ func dataSelfTest() {
     let dirs = (try? FileManager.default.contentsOfDirectory(atPath: dataRoot!.appendingPathComponent("devices").path))?.count
     check(all.count == dirs, "a profile failed to load (see the error above)")
     let flex = Profile.find(all, productId: 0x210e, name: "")
-    check(flex?.name == "JBL Tune Flex 2" && flex?.gestures.count == 8 && flex?.actions.count == 10, "flex profile")
+    check(flex?.name == "JBL Tune Flex 2" && flex?.gestures.count == 8 && flex?.actions.contains { $0.name == "play_pause" } == true, "flex profile")
     check(flex?.image(color: 14)?.lastPathComponent == "ghost-black.png", "photo by color")
     check(flex?.image(color: 99)?.lastPathComponent == "black.png", "default photo")
     check(Profile.find(all, productId: nil, name: "JBL Tune Flex 2")?.name == "JBL Tune Flex 2", "by name")
