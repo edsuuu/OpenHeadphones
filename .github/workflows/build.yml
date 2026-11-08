@@ -2,11 +2,14 @@
 # them as a GitHub release. The asset names are what the apps' auto update downloads: keep them.
 name: build
 
+# the site (docs/) and the texts change nothing in the apps: no build for them (tags always build)
 on:
   push:
     branches: ["**"]
     tags: ["v*"]
+    paths-ignore: ["docs/**", "**.md", "LICENSE"]
   pull_request:
+    paths-ignore: ["docs/**", "**.md", "LICENSE"]
 
 permissions:
   contents: write

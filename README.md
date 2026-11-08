@@ -1,5 +1,9 @@
 # JBL Headphones for Windows, macOS and Linux
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-42d99b)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/edsuuu/jbl-headphones?color=ff9244)](https://github.com/edsuuu/jbl-headphones/releases/latest)
+[![Build](https://github.com/edsuuu/jbl-headphones/actions/workflows/build.yml/badge.svg)](https://github.com/edsuuu/jbl-headphones/actions/workflows/build.yml)
+
 **Control your JBL earbuds and headphones from the computer:** battery, noise cancelling (ANC),
 ambient sound, equalizer with JBL's own presets, touch gestures, find my buds and the device
 settings, from the system tray or the menu bar, without the phone app.
@@ -117,6 +121,14 @@ Wave Flex 2, Wave Flex 3.
 - Profiles and photos: `python3 tools/import_jbl_apk.py <JBL Headphones .apkm>`.
 
 A `v<Cargo.toml version>` tag publishes a release: CI builds the three systems and uploads them.
+
+## Open source / Código aberto
+
+Free and open source under the [MIT license](LICENSE): use, change and share it. Issues and pull
+requests are welcome, especially reports of how other JBL models behave.
+
+Grátis e de código aberto sob a [licença MIT](LICENSE): use, modifique e compartilhe. Issues e pull
+requests são bem-vindos, principalmente relatos de como outros modelos JBL se comportam.
 
 ## License / Licença
 

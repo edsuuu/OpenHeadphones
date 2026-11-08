@@ -1,22 +1,23 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JBL Headphones para PC: app dos fones JBL no Windows, macOS e Linux</title>
-<meta name="description" content="App grátis e de código aberto para controlar fones JBL no computador: bateria, cancelamento de ruído (ANC), modo ambiente, equalizador, gestos e ajustes. Windows, macOS e Linux. Free JBL headphones app for desktop.">
+<title>JBL Headphones for PC: open source JBL app for Windows, macOS and Linux</title>
+<meta name="description" content="Free, open source desktop app for JBL headphones: battery, noise cancelling (ANC), ambient sound, equalizer, gestures and settings on Windows, macOS and Linux. App grátis e de código aberto para fones JBL no PC.">
 <link rel="canonical" href="https://edsuuu.github.io/jbl-headphones/">
 <meta name="theme-color" content="#0e0f13">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="JBL Headphones">
-<meta property="og:title" content="JBL Headphones: seus fones JBL no Windows, macOS e Linux">
-<meta property="og:description" content="Bateria, ANC, modo ambiente, equalizador e ajustes dos fones JBL direto no computador. Grátis e de código aberto.">
+<meta property="og:title" content="JBL Headphones: your JBL headphones on Windows, macOS and Linux">
+<meta property="og:description" content="Battery, ANC, ambient sound, equalizer and settings of JBL headphones on the computer. Free and open source (MIT).">
 <meta property="og:url" content="https://edsuuu.github.io/jbl-headphones/">
 <meta property="og:image" content="https://edsuuu.github.io/jbl-headphones/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:locale" content="pt_BR">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
 <script type="application/ld+json">
@@ -24,11 +25,13 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "JBL Headphones",
-  "description": "Desktop app for JBL headphones: battery, noise cancelling, ambient sound, equalizer, touch gestures and settings.",
+  "description": "Open source desktop app for JBL headphones: battery, noise cancelling, ambient sound, equalizer, touch gestures and settings.",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Windows 10, Windows 11, macOS 15, Linux",
   "softwareVersion": "0.3.0",
   "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "codeRepository": "https://github.com/edsuuu/jbl-headphones",
   "url": "https://edsuuu.github.io/jbl-headphones/",
   "downloadUrl": "https://github.com/edsuuu/jbl-headphones/releases/latest",
   "screenshot": "https://edsuuu.github.io/jbl-headphones/poster.png",
@@ -45,7 +48,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
-    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, Roboto, sans-serif;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, Roboto, sans-serif;
     min-height: 100vh; display: flex; flex-direction: column;
     background:
       radial-gradient(60rem 40rem at 20% -10%, rgba(255,146,68,.10), transparent 60%),
@@ -53,107 +56,145 @@
       var(--bg);
   }
   a { color: inherit; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--a1); outline-offset: 2px; }
+  .bar, main, footer { width: 100%; max-width: 1040px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; }
+  .brand { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .bar nav { display: flex; align-items: center; gap: 10px; }
+  .gh {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,.07); text-decoration: none; font-size: 13px;
+  }
+  .gh:hover { background: rgba(255,255,255,.14); }
+  .gh svg { width: 16px; height: 16px; fill: currentColor; }
+  .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.07); }
+  .lang button {
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--text2); background: none; border: 0;
+    padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: rgba(255,255,255,.14); color: var(--text); }
+
   main {
-    flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 56px 24px 32px;
-    display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 64px; align-items: center;
+    flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 56px; align-items: center;
+    padding-top: 20px; padding-bottom: 20px;
   }
   figure { margin: 0; }
   .device {
-    position: relative; border-radius: 28px; overflow: hidden; background: var(--panel);
-    border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.55);
-    aspect-ratio: 720 / 1324;
+    height: min(64vh, 540px); aspect-ratio: 720 / 1300; overflow: hidden;
+    border-radius: 5.56% / 3.08%; /* the panel's own corners: 40 px of 720 × 1300 */
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
   }
-  .device video { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .device video { display: block; width: 100%; height: 100%; }
   figcaption {
-    margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;
-    color: var(--text2); font-size: 14px;
+    margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: var(--text2); font-size: 13px;
   }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
   figcaption strong { color: var(--text); font-weight: 600; }
-  .eyebrow { color: var(--text2); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 14px; }
-  h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1.06; letter-spacing: -.02em; margin: 0 0 18px; font-weight: 700; }
+
+  .eyebrow { color: var(--text2); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 12px; }
+  .eyebrow b { color: var(--green); font-weight: 600; }
+  h1 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.06; letter-spacing: -.02em; margin: 0 0 14px; font-weight: 700; }
   h1 span { background: var(--accent); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lead { color: var(--text2); font-size: 18px; margin: 0 0 32px; max-width: 34em; }
-  .downloads { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .lead { color: var(--text2); font-size: 16px; margin: 0 0 24px; max-width: 36em; }
+
+  .downloads { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 10px; align-items: stretch; }
   .dl {
-    display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 14px;
+    display: flex; flex-direction: column; gap: 1px; padding: 12px 14px; border-radius: 14px;
     background: var(--sheet); border: 1px solid var(--line); text-decoration: none;
     transition: border-color .15s, transform .15s;
   }
-  .dl:hover { border-color: rgba(255,255,255,.22); transform: translateY(-1px); }
-  .dl:focus-visible, button:focus-visible { outline: 2px solid var(--a1); outline-offset: 2px; }
+  a.dl:hover { border-color: rgba(255,255,255,.22); transform: translateY(-1px); }
   .dl b { font-weight: 600; }
-  .dl small { color: var(--text2); font-size: 13px; }
-  .dl .links { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .dl small { color: var(--text2); font-size: 12px; }
+  .dl .links { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
   .dl .links a {
-    font-size: 13px; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.07);
-    text-decoration: none;
+    font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.07);
+    text-decoration: none; text-align: center; white-space: nowrap;
   }
   .dl .links a:hover { background: rgba(255,255,255,.14); }
-  .linux { grid-column: 1 / -1; }
   .dl.mine { background: var(--accent); border-color: transparent; color: #fff; }
-  .dl.mine small { color: rgba(255,255,255,.85); }
+  .dl.mine small { color: rgba(255,255,255,.88); }
   .dl.mine .links a { background: rgba(0,0,0,.18); }
-  .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .85; display: none; }
+  .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .9; display: none; }
   .mine .tag { display: block; }
-  .curl { margin-top: 22px; }
-  .curl p { margin: 0 0 8px; color: var(--text2); font-size: 14px; }
+
+  .curl { margin-top: 18px; }
+  .curl p { margin: 0 0 6px; color: var(--text2); font-size: 13px; }
   .cmd {
-    display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px; border-radius: 12px;
+    display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px;
     background: #000; border: 1px solid var(--line);
   }
-  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .cmd code::before { content: "$ "; color: var(--text3); }
-  button {
-    font: inherit; font-size: 13px; color: var(--text); background: rgba(255,255,255,.08);
-    border: 0; border-radius: 8px; padding: 6px 12px; cursor: pointer; flex: none;
+  .cmd button {
+    font: inherit; font-size: 12px; color: var(--text); background: rgba(255,255,255,.08);
+    border: 0; border-radius: 8px; padding: 5px 11px; cursor: pointer; flex: none;
   }
-  button:hover { background: rgba(255,255,255,.15); }
-  .note { color: var(--text3); font-size: 13px; margin: 14px 0 0; }
-  details { margin-top: 22px; color: var(--text2); font-size: 14px; }
+  .cmd button:hover { background: rgba(255,255,255,.15); }
+  .note { color: var(--text3); font-size: 12px; margin: 10px 0 0; }
+  details { margin-top: 14px; color: var(--text2); font-size: 13px; }
   summary { cursor: pointer; color: var(--text); }
-  details p { margin: 10px 0 0; }
+  details p { margin: 8px 0 0; }
+
   footer {
-    max-width: 1080px; width: 100%; margin: 0 auto; padding: 20px 24px 32px; color: var(--text3);
-    font-size: 13px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding-top: 14px; padding-bottom: 18px; color: var(--text3); font-size: 12px;
+    border-top: 1px solid var(--line);
   }
-  footer p { margin: 0; max-width: 46em; }
+  footer p { margin: 0; }
+
   @media (max-width: 860px) {
-    main { grid-template-columns: minmax(0, 1fr); gap: 40px; padding: 32px 16px 24px; }
-    figure { max-width: 300px; margin: 0 auto; order: 2; }
+    main { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    figure { order: 2; }
+    .device { height: auto; width: min(72vw, 280px); margin: 0 auto; }
     .downloads { grid-template-columns: 1fr; }
-    .linux { grid-column: auto; }
+    .bar, main, footer { padding-left: 16px; padding-right: 16px; }
+    .gh span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   }
 </style>
 </head>
 <body>
+<header class="bar">
+  <span class="brand"><span aria-hidden="true">🎧</span> JBL Headphones</span>
+  <nav>
+    <a class="gh" href="https://github.com/edsuuu/jbl-headphones">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+      <span data-i18n="source">Source code</span>
+    </a>
+    <span class="lang" role="group" aria-label="Language / Idioma">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="pt" aria-pressed="false">PT</button>
+    </span>
+  </nav>
+</header>
+
 <main>
   <figure>
     <div class="device">
       <video id="demo" src="demo.mp4" poster="poster.png" autoplay muted loop playsinline preload="auto"
-        aria-label="O painel do JBL Headphones abrindo com um JBL Tune Flex 2 conectado: muda para o modo ambiente e passa pelas abas Som, Toques e Ajustes"></video>
+        aria-label="The JBL Headphones panel with a JBL Tune Flex 2 connected: it switches to Ambient mode and goes through the Sound, Touch and Settings tabs"></video>
     </div>
-    <figcaption><span class="dot" aria-hidden="true"></span>No vídeo: <strong>JBL Tune Flex 2</strong></figcaption>
+    <figcaption><span class="dot" aria-hidden="true"></span><span data-i18n="caption">In the video:</span> <strong>JBL Tune Flex 2</strong></figcaption>
   </figure>
 
   <section aria-labelledby="title">
-    <p class="eyebrow">Grátis · Código aberto · Windows · macOS · Linux</p>
-    <h1 id="title">Seus fones JBL <span>no computador</span></h1>
-    <p class="lead">Bateria, cancelamento de ruído, modo ambiente, equalizador com os presets da JBL,
-      gestos de toque e os ajustes do fone, direto da bandeja do Windows e do Linux ou da barra de
-      menus do Mac. Sem o app do celular.</p>
+    <p class="eyebrow" data-i18n="eyebrow">Free · <b>Open source (MIT)</b> · Windows · macOS · Linux</p>
+    <h1 id="title" data-i18n="h1">Your JBL headphones <span>on the computer</span></h1>
+    <p class="lead" data-i18n="lead">Battery, noise cancelling, ambient sound, JBL's equalizer presets, touch gestures
+      and the headphones' settings, from the Windows and Linux tray or the Mac menu bar. No phone app needed.</p>
 
     <div class="downloads">
       <a class="dl" data-os="mac" href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-mac.zip">
-        <span class="tag">Para este computador</span>
-        <b>macOS</b><small>macOS 15+, Apple Silicon e Intel</small>
+        <span class="tag" data-i18n="mine">For this computer</span>
+        <b>macOS</b><small data-i18n="mac">macOS 15+, Apple Silicon and Intel</small>
       </a>
       <a class="dl" data-os="windows" href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-windows-x64.zip">
-        <span class="tag">Para este computador</span>
-        <b>Windows</b><small>Windows 10 e 11, x64</small>
+        <span class="tag" data-i18n="mine">For this computer</span>
+        <b>Windows</b><small data-i18n="windows">Windows 10 and 11, x64</small>
       </a>
-      <div class="dl linux" data-os="linux">
-        <span class="tag">Para este computador</span>
+      <div class="dl" data-os="linux">
+        <span class="tag" data-i18n="mine">For this computer</span>
         <b>Linux</b><small>Ubuntu, Debian, Mint, Pop!_OS</small>
         <span class="links">
           <a href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-amd64.deb">.deb amd64</a>
@@ -165,36 +206,75 @@
     </div>
 
     <div class="curl">
-      <p>Ou instale pelo terminal, no macOS e no Linux:</p>
+      <p data-i18n="curl">Or install from the terminal, on macOS and Linux:</p>
       <div class="cmd">
         <code id="cmd">curl -fsSL https://edsuuu.github.io/jbl-headphones/install.sh | sh</code>
-        <button type="button" id="copy">Copiar</button>
+        <button type="button" id="copy" data-i18n="copy">Copy</button>
       </div>
     </div>
 
-    <p class="note">O app se atualiza sozinho. No Mac, baixando o .zip: na primeira vez abra o app e vá em
-      Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim (pelo terminal não precisa).</p>
+    <p class="note" data-i18n="note">The app updates itself. Mac .zip: the first time, open the app, then System Settings →
+      Privacy &amp; Security → Open Anyway (not needed with the terminal install).</p>
 
     <details>
-      <summary>44 modelos JBL suportados</summary>
-      <p>Testado de ponta a ponta: <strong>Tune Flex 2</strong>. Também: Endurance Pace, Endurance Peak 4,
-        Endurance Run 3 Wireless, Endurance Zone, Junior Free, Live 680NC, Live 780NC, Live Beam 3,
-        Live Beam 4, Live Buds 4, Live Flex 3, Live Flex 4, Sense Lite, Sense Pro, Smart Tx,
+      <summary data-i18n="models">44 supported JBL models</summary>
+      <p><span data-i18n="tested">Tested end to end: <strong>Tune Flex 2</strong>. Also:</span> Endurance Pace,
+        Endurance Peak 4, Endurance Run 3 Wireless, Endurance Zone, Junior Free, Live 680NC, Live 780NC,
+        Live Beam 3, Live Beam 4, Live Buds 4, Live Flex 3, Live Flex 4, Sense Lite, Sense Pro, Smart Tx,
         Soundgear Clips, Tour One M3, Tune 135BT, Tune 235BT, Tune 255NC, Tune 520BT2, Tune 530BT,
         Tune 535BT, Tune 680NC, Tune 730BT, Tune 735BT, Tune 780NC, Tune 785NC, Tune Beam 2,
         Tune Beam 3, Tune Buds 2, Tune Buds 3, Tune Flex 3, Vibe Beam 3, Vibe Buds 2, Vibe Buds 3,
-        Vibe Flex 2, Vibe Flex 3, Wave Beam 3, Wave Buds 2, Wave Buds 3, Wave Flex 2 e Wave Flex 3.</p>
+        Vibe Flex 2, Vibe Flex 3, Wave Beam 3, Wave Buds 2, Wave Buds 3, Wave Flex 2, Wave Flex 3.</p>
     </details>
   </section>
 </main>
 
 <footer>
-  <p>Projeto independente e de código aberto, sem afiliação com a JBL ou a Harman. JBL é marca
-    registrada da Harman International Industries. Independent project, not affiliated with JBL or Harman.</p>
-  <p><a href="https://github.com/edsuuu/jbl-headphones">Código no GitHub</a> · Licença MIT</p>
+  <p data-i18n="footer">Open source project under the MIT license, independent and not affiliated with JBL or Harman.
+    JBL is a trademark of Harman International Industries.</p>
 </footer>
 
 <script>
+  // The page is written in English; Portuguese replaces the [data-i18n] texts (browser language or the toggle).
+  const pt = {
+    $title: "JBL Headphones para PC: app de código aberto dos fones JBL no Windows, macOS e Linux",
+    $video: "O painel do JBL Headphones com um JBL Tune Flex 2 conectado: muda para o modo ambiente e passa pelas abas Som, Toques e Ajustes",
+    $copied: "Copiado", $selected: "Selecionado",
+    source: "Código-fonte",
+    caption: "No vídeo:",
+    eyebrow: "Grátis · <b>Código aberto (MIT)</b> · Windows · macOS · Linux",
+    h1: "Seus fones JBL <span>no computador</span>",
+    lead: "Bateria, cancelamento de ruído, modo ambiente, os presets de equalizador da JBL, gestos de toque e os ajustes do fone, na bandeja do Windows e do Linux ou na barra de menus do Mac. Sem o app do celular.",
+    mine: "Para este computador",
+    mac: "macOS 15+, Apple Silicon e Intel",
+    windows: "Windows 10 e 11, x64",
+    curl: "Ou instale pelo terminal, no macOS e no Linux:",
+    copy: "Copiar",
+    note: "O app se atualiza sozinho. Mac pelo .zip: na primeira vez abra o app e vá em Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim (pelo terminal não precisa).",
+    models: "44 modelos JBL suportados",
+    tested: "Testado de ponta a ponta: <strong>Tune Flex 2</strong>. Também:",
+    footer: "Projeto de código aberto sob a licença MIT, independente e sem afiliação com a JBL ou a Harman. JBL é marca registrada da Harman International Industries.",
+  };
+  const video = document.getElementById("demo");
+  const texts = [...document.querySelectorAll("[data-i18n]")];
+  const en = { $title: document.title, $video: video.getAttribute("aria-label"), $copied: "Copied", $selected: "Selected" };
+  texts.forEach((e) => (en[e.dataset.i18n] = e.innerHTML));
+  let words = en;
+
+  function setLang(lang) {
+    words = lang === "pt" ? pt : en;
+    texts.forEach((e) => (e.innerHTML = words[e.dataset.i18n]));
+    document.title = words.$title;
+    video.setAttribute("aria-label", words.$video);
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+    document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+    try { localStorage.setItem("lang", lang); } catch {}
+  }
+  document.querySelectorAll(".lang button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  let saved = null;
+  try { saved = localStorage.getItem("lang"); } catch {}
+  setLang(saved || (/^pt\b/i.test(navigator.language) ? "pt" : "en"));
+
   // the download for this system first and highlighted (Android reports Linux: left alone)
   const ua = navigator.userAgent.toLowerCase();
   const pf = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "").toLowerCase();
@@ -203,13 +283,13 @@
   const mine = os && document.querySelector(`.dl[data-os="${os}"]`);
   if (mine) { mine.classList.add("mine"); mine.parentNode.prepend(mine); }
 
-  const video = document.getElementById("demo");
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { video.removeAttribute("autoplay"); video.pause(); video.controls = true; }
 
-  document.getElementById("copy").addEventListener("click", async (e) => {
-    try { await navigator.clipboard.writeText(document.getElementById("cmd").textContent); e.target.textContent = "Copiado"; }
-    catch { getSelection().selectAllChildren(document.getElementById("cmd")); e.target.textContent = "Selecionado"; }
-    setTimeout(() => (e.target.textContent = "Copiar"), 1800);
+  const copy = document.getElementById("copy");
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(document.getElementById("cmd").textContent); copy.textContent = words.$copied; }
+    catch { getSelection().selectAllChildren(document.getElementById("cmd")); copy.textContent = words.$selected; }
+    setTimeout(() => (copy.textContent = words.copy), 1800);
   });
 </script>
 </body>
