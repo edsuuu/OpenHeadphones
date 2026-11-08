@@ -42,10 +42,17 @@ impl Ui {
             self.switch(p, WIDTH - 62.0, y + 18.0, auto, anc, Action::Adaptive);
             y += 48.0;
         }
-        let max = profile.anc_levels;
+        // one row of levels: the ambient level in ambient mode, the ANC intensity otherwise
+        let ambient = state.mode == Some(NoiseMode::Ambient) && profile.ambient_levels > 0;
+        let (max, current, title) = match ambient {
+            true => (profile.ambient_levels, state.ambient_level, "anc.ambient_level"),
+            false => (profile.anc_levels, state.anc_level, "anc.intensity"),
+        };
+        let auto = auto && !ambient;
         if max > 0 {
-            p.text(16.0, y + 30.0, &t("anc.intensity"), 13.5, true, color(TEXT, 1.0), 0.0);
-            let level = state.anc_level.map_or("–".to_string(), |n| n.to_string());
+            p.alpha = if anc || ambient { 1.0 } else { 0.35 };
+            p.text(16.0, y + 30.0, &t(title), 13.5, true, color(TEXT, 1.0), 0.0);
+            let level = current.map_or("–".to_string(), |n| n.to_string());
             let hint = if auto { t("anc.automatic") } else { tf("anc.level", &[("n", &level), ("max", &max)]) };
             p.text(16.0, y + 47.0, &hint, 11.5, false, color(TEXT2, 1.0), 0.0);
             let x0 = WIDTH - 16.0 - (max as f32 * 18.0 + (max - 1) as f32 * 5.0);
@@ -53,12 +60,13 @@ impl Ui {
                 p.alpha *= 0.45;
             }
             for n in 1..=max {
-                let (x, yb, a) = (x0 + (n - 1) as f32 * 23.0, y + 19.0, Action::Level(n));
-                if anc && !auto {
+                let a = if ambient { Action::AmbientLevel(n) } else { Action::Level(n) };
+                let (x, yb) = (x0 + (n - 1) as f32 * 23.0, y + 19.0);
+                if ambient || (anc && !auto) {
                     self.target(p, x - 2.5, yb - 4.0, 23.0, 34.0, a);
                 }
                 let mut g = self.glass(a, p);
-                g.on = self.active(a, state.anc_level.is_some_and(|k| k >= n));
+                g.on = self.active(a, current.is_some_and(|k| k >= n));
                 p.glass(x, yb, 18.0, 26.0, 6.0, g);
                 let bar = 3.0 + 12.0 * n as f32 / max as f32;
                 let fill = Shader::SolidColor(color(0xFFFFFF, 0.3 + 0.5 * g.on));

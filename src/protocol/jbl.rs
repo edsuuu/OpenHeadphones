@@ -40,6 +40,7 @@ pub fn encode(cmd: &Command) -> Vec<u8> {
         }
         Command::Adaptive(on) => vec![0xAA, 0x91, 0x03, 0x20, 0x01, *on as u8],
         Command::AncLevel(n) => vec![0xAA, 0x91, 0x03, 0x20, 0x04, *n],
+        Command::AmbientLevel(n) => vec![0xAA, 0x91, 0x03, 0x20, 0xA1, *n],
         Command::Eq(bands) => encode_eq(bands.as_deref()),
         Command::Gestures(v) => {
             [vec![0xAA, 0x77, 1 + 2 * v.len() as u8, 0], v.iter().flat_map(|&(g, a)| [g, a]).collect()].concat()
@@ -121,6 +122,7 @@ pub fn apply(state: &mut DeviceState, data: &[u8]) -> bool {
                     match pair[0] {
                         0x01 => state.adaptive = Some(pair[1] != 0),
                         0x04 => state.anc_level = Some(pair[1]),
+                        0xA1 => state.ambient_level = Some(pair[1]),
                         _ => {}
                     }
                 }
@@ -184,6 +186,7 @@ mod tests {
         assert_eq!(encode(&Command::Mode(NoiseMode::Off)), hex("aa 91 01 13"));
         assert_eq!(encode(&Command::Adaptive(false)), hex("aa 91 03 20 01 00"));
         assert_eq!(encode(&Command::AncLevel(7)), hex("aa 91 03 20 04 07"));
+        assert_eq!(encode(&Command::AmbientLevel(3)), hex("aa 91 03 20 a1 03"));
         assert_eq!(encode(&Command::Eq(None)), hex("aa a2 10 00 03 00 00000000 00 00000000 00000000 00"));
         let mut g = [0.0; 10];
         (g[1], g[2]) = (4.0, 4.0);
@@ -200,7 +203,7 @@ mod tests {
     fn reads_what_the_device_sends() {
         let mut s = DeviceState::default();
         assert!(apply(&mut s, &hex("aa 91 07 12 01 00 02 01 03 00 aa 91 09 22 01 01 04 06 05 01 a1 06")));
-        assert_eq!((s.mode, s.adaptive, s.anc_level), (Some(NoiseMode::Ambient), Some(true), Some(6)));
+        assert_eq!((s.mode, s.adaptive, s.anc_level, s.ambient_level), (Some(NoiseMode::Ambient), Some(true), Some(6), Some(6)));
         apply(&mut s, &hex("aa 25 0d 01 00 00 64 64 00 28 f8 10 64 00 28 00"));
         let b = s.battery.unwrap();
         assert_eq!((b.left, b.right, b.case, b.case_charging), (100, 100, 40, false));

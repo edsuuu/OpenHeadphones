@@ -44,6 +44,8 @@ pub struct DeviceState {
     pub mode: Option<NoiseMode>,
     pub adaptive: Option<bool>,
     pub anc_level: Option<u8>,
+    /// How much of the outside comes in, in ambient mode.
+    pub ambient_level: Option<u8>,
     pub battery: Option<Battery>,
     /// Gain per band in dB; `Some(None)` = EQ off.
     pub eq: Option<Option<Vec<f32>>>,
@@ -58,6 +60,7 @@ pub enum Command {
     Mode(NoiseMode),
     Adaptive(bool),
     AncLevel(u8),
+    AmbientLevel(u8),
     /// (frequency Hz, gain dB) per band; `None` turns the EQ off.
     Eq(Option<Vec<(f32, f32)>>),
     /// The whole (gesture, action) list, as the JBL app sends it.

@@ -10,6 +10,8 @@ name_prefixes = ["JBL Tune Flex 2"]
 noise_modes = ["anc", "ambient", "talk_thru", "off"]
 adaptive_anc = true
 anc_levels = 7
+# AscCard: setTotalCount(7) for the ambient aware level
+ambient_levels = 7
 find_buds = true
 
 # Touch gestures: id = GestureType ordinal in the JBL app; kind = label key (gesture.<kind>).

@@ -47,6 +47,7 @@ adaptive = "Adaptive"
 adaptive_hint = "Adjusts to your surroundings"
 only_anc = "Only in ANC mode"
 intensity = "Intensity"
+ambient_level = "Ambient level"
 automatic = "Automatic"
 level = "Level {n} of {max}"
 

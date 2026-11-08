@@ -72,6 +72,7 @@ enum Action {
     QuickMode(usize, NoiseMode),
     Adaptive,
     Level(u8),
+    AmbientLevel(u8),
     Eq,
     Preset(usize),
     Custom,
@@ -363,6 +364,12 @@ impl Ui {
                     s.anc_level = Some(n);
                 }
                 self.send(Command::AncLevel(n))
+            }
+            Action::AmbientLevel(n) => {
+                if let Some(s) = self.state_mut() {
+                    s.ambient_level = Some(n);
+                }
+                self.send(Command::AmbientLevel(n))
             }
             Action::Eq | Action::Preset(_) | Action::Custom => self.eq_action(a),
             Action::Curve => vec![],

@@ -22,6 +22,8 @@ pub struct Profile {
     pub adaptive_anc: bool,
     /// Manual ANC levels 1…n (0 = none).
     pub anc_levels: u8,
+    /// Ambient levels 1…n (0 = none).
+    pub ambient_levels: u8,
     pub find_buds: bool,
     pub images: Images,
     pub eq: Option<Eq>,

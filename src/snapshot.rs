@@ -36,25 +36,28 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
         mode: Some(NoiseMode::Anc),
         adaptive: Some(false),
         anc_level: Some(5),
+        ambient_level: Some(3),
         battery: Some(Battery { left: 96, right: 97, case: 40, case_charging: true, ..Default::default() }),
         eq: model.eq.as_ref().and_then(|e| e.presets.get(2)).map(|p| Some(p.gains.clone())),
         gestures: Some(model.gestures.iter().zip(model.actions.iter().cycle().skip(6)).map(|(g, a)| (g.id, a.id)).collect()),
         beep: Some((false, true)),
     };
-    u.update("fake".into(), state);
+    u.update("fake".into(), state.clone());
     u.settle();
     u.draw(&mut pm, s, &fonts);
     save(&pm, "list");
 
     u.open_device(0);
     let screens = [
-        ("sound", Tab::Sound, false),
-        ("gestures", Tab::Gestures, false),
-        ("gestures-sheet", Tab::Gestures, true),
-        ("find", Tab::Find, false),
-        ("find-sheet", Tab::Find, true),
+        ("sound", Tab::Sound, false, NoiseMode::Anc),
+        ("sound-ambient", Tab::Sound, false, NoiseMode::Ambient),
+        ("gestures", Tab::Gestures, false, NoiseMode::Anc),
+        ("gestures-sheet", Tab::Gestures, true, NoiseMode::Anc),
+        ("find", Tab::Find, false, NoiseMode::Anc),
+        ("find-sheet", Tab::Find, true, NoiseMode::Anc),
     ];
-    for (name, tab, sheet) in screens {
+    for (name, tab, sheet, mode) in screens {
+        u.update("fake".into(), DeviceState { mode: Some(mode), ..state.clone() });
         u.preview(tab, sheet);
         // the controls learn their new "on" state while drawing
         for _ in 0..60 {

@@ -47,6 +47,7 @@ adaptive = "Adaptativo"
 adaptive_hint = "Ajusta a força ao ambiente"
 only_anc = "Só no modo ANC"
 intensity = "Intensidade"
+ambient_level = "Nível do ambiente"
 automatic = "Automática"
 level = "Nível {n} de {max}"
 
