@@ -72,6 +72,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: JBL Headphones.app (universal, ad-hoc signed) zipped
         run: bash mac/bundle.sh "${{ needs.version.outputs.version }}"
+      - name: The bundle reports its version and passes its self-test on its own data
+        run: |
+          app="dist/JBL Headphones.app/Contents/MacOS/jbl-headphones"
+          test "$("$app" --version)" = "${{ needs.version.outputs.version }}"
+          "$app" --selftest
       - uses: actions/upload-artifact@v4
         with:
           name: mac
