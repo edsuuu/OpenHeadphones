@@ -1568,8 +1568,8 @@ func snapshot(to dir: String, profiles: [Profile]) {
     m.sheet = .app
     save("app-sheet")
     m.sheet = nil
-    // the first model with an id stands in for a real device, with the settings it sent (Nov 8)
-    let p = profiles.first { !$0.productIds.isEmpty } ?? Profile()
+    // the Tune Flex 2 (where all of this was tested) stands in for a real device, with the settings it sent (Nov 8)
+    let p = profiles.first { $0.productIds.contains(0x210e) } ?? profiles.first ?? Profile()
     var s = DeviceState(connected: true, name: p.name, productId: p.productIds.first, color: 0, mode: .anc, adaptive: false,
                         ancLevel: 5, ambientLevel: 3, battery: Battery(left: 96, right: 97, caseLevel: 40, caseCharging: true),
                         eq: p.eq.flatMap { $0.presets.count > 2 ? .some($0.presets[2].gains.map(Float.init)) : nil },
