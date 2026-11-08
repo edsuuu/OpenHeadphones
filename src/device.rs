@@ -89,8 +89,9 @@ pub enum Command {
     Adaptive(bool),
     AncLevel(u8),
     AmbientLevel(u8),
-    /// (frequency Hz, gain dB) per band; `None` turns the EQ off.
-    Eq(Option<Vec<(f32, f32)>>),
+    /// (category, (frequency Hz, gain dB) per band); `None` turns the EQ off. The category is the
+    /// JBL preset's (7 = Studio…) or 230 for the user's own curve.
+    Eq(Option<(u8, Vec<(f32, f32)>)>),
     /// The whole (gesture, action) list, as the JBL app sends it.
     Gestures(Vec<(u8, u8)>),
     /// `Some(true)` beeps, `Some(false)` stops, `None` leaves that side alone.

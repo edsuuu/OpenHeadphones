@@ -1,6 +1,6 @@
 //! The panel: device list → device page (sound, touch controls, find my buds). Immediate mode:
 //! every frame draws everything and records where each clickable thing is. Coordinates are
-//! logical px of the pixmap (which includes the gap for the tail).
+//! logical px of the panel.
 
 mod detail;
 mod eq;
@@ -16,22 +16,26 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
 
-use tiny_skia::{Color, FillRule, Mask, Pixmap, Shader};
+use tiny_skia::{Color, FillRule, Mask, Pixmap, PremultipliedColorU8, Shader};
 
 use crate::device::{Command, DeviceState, NoiseMode};
 use crate::i18n::t;
+use crate::platform;
 use crate::profile::{self, Profile, Side};
 use crate::render::fonts::Fonts;
 use crate::render::painter::{Glass, Painter};
-use crate::render::{PANEL, color, shapes};
+use crate::render::{PANEL, TEXT2, color, shapes};
 
-/// Panel size (logical px) and the room between it and the taskbar, where the tail goes.
+/// Panel size (logical px) and the room between it and the taskbar.
 pub const WIDTH: f32 = 360.0;
 pub const HEIGHT: f32 = 650.0;
 pub const GAP: f32 = 12.0;
-const RADIUS: f32 = 22.0;
+const RADIUS: f32 = 20.0;
 /// Where a tab's content starts on the device page.
-const CONTENT_Y: f32 = 216.0;
+const CONTENT_Y: f32 = 238.0;
+/// A device's card in the list, and where the first one starts.
+const CARD_H: f32 = 194.0;
+const LIST_Y: f32 = 50.0;
 
 /// Commands for the devices, by device id.
 type Out = Vec<(String, Command)>;
@@ -133,8 +137,7 @@ pub struct Ui {
     /// For devices no profile matches.
     no_profile: Rc<Profile>,
     devices: Vec<Device>,
-    /// x of the tray icon inside the panel (logical px) and whether the bar is on top: for the tail.
-    pub tip_x: f32,
+    /// The bar is on top (macOS, GNOME): the panel hangs from the top of the frame.
     pub tip_on_top: bool,
     current: usize,
     detail: bool,
@@ -185,7 +188,6 @@ impl Ui {
             profiles,
             no_profile: Rc::default(),
             devices: vec![],
-            tip_x: WIDTH / 2.0,
             tip_on_top: false,
             current: 0,
             detail: false,
@@ -254,7 +256,7 @@ impl Ui {
         match (self.detail, self.devices.len()) {
             (true, _) => HEIGHT,
             (false, 0) => 330.0,
-            (false, n) => (78.0 + n as f32 * 162.0).min(HEIGHT),
+            (false, n) => (LIST_Y + n as f32 * (CARD_H + 12.0) + 4.0).min(HEIGHT),
         }
     }
 
@@ -463,9 +465,9 @@ impl Ui {
         }
     }
 
-    fn glass(&self, a: Action, p: &Painter) -> Glass {
+    fn glass(&self, a: Action) -> Glass {
         let v = self.anim.get(&a).copied().unwrap_or_default();
-        Glass { hover: v[0], press: v[1], on: v[2], light: self.pointer.map(|(x, y)| (x - p.dx, y - p.dy)) }
+        Glass { hover: v[0], press: v[1], on: v[2] }
     }
 
     /// Animated "on" value of control `a` (the first time it starts in place).
@@ -476,13 +478,31 @@ impl Ui {
         v[2]
     }
 
-    /// The model's photo in the device's color, in a `size`×`size` box.
+    /// The model's photo in the device's color, in a `size`×`size` box; the system's headphones
+    /// icon for a model without one (a photo per JBL model cannot be kept by hand).
     #[allow(clippy::too_many_arguments)]
     fn draw_photo(&mut self, p: &mut Painter, profile: &Profile, color_id: Option<u8>, cx: f32, cy: f32, size: f32) {
-        let Some(path) = profile.image(color_id) else { return };
-        let img = self.photos.entry(path).or_insert_with_key(|path| Pixmap::load_png(path).ok());
-        if let Some(img) = img {
-            p.photo(img, cx, cy, size);
+        if let Some(path) = profile.image(color_id)
+            && let Some(img) = self.photos.entry(path).or_insert_with_key(|path| Pixmap::load_png(path).ok())
+        {
+            return p.photo(img, cx, cy, size);
+        }
+        // the icon in the middle of a canvas twice its size, so it sits small on the disc
+        let icon = self.photos.entry(PathBuf::from("<system headphones icon>")).or_insert_with(|| {
+            let (n, k) = (64, 128);
+            let alpha = platform::headphones_icon(n)?;
+            let c = color(TEXT2, 1.0);
+            let mut pm = Pixmap::new(k, k)?;
+            for (i, a) in alpha.into_iter().enumerate() {
+                let (x, y) = (i as u32 % n + (k - n) / 2, i as u32 / n + (k - n) / 2);
+                let ch = |v: f32| (v * a as f32).round() as u8;
+                pm.pixels_mut()[(y * k + x) as usize] = PremultipliedColorU8::from_rgba(ch(c.red()), ch(c.green()), ch(c.blue()), a)?;
+            }
+            Some(pm)
+        });
+        match icon {
+            Some(img) => p.photo(img, cx, cy, size),
+            None => p.fill(&shapes::circle(cx, cy, size * 0.5), Shader::SolidColor(color(0xFFFFFF, 0.045))),
         }
     }
 
@@ -491,8 +511,7 @@ impl Ui {
         self.targets.clear();
         let h = self.height;
         let top = if self.tip_on_top { GAP } else { HEIGHT - h };
-        let tip = self.tip_x.clamp(RADIUS + 24.0, WIDTH - RADIUS - 24.0);
-        let outline = widgets::panel_outline(tip, self.tip_on_top, h);
+        let outline = shapes::rounded_rect(0.0, 0.0, WIDTH, h, RADIUS);
         let mut p = Painter { pm, scale, dx: 0.0, dy: top, alpha: 1.0, fonts };
 
         p.fill(&outline, Shader::SolidColor(color(PANEL, 1.0)));
@@ -514,8 +533,7 @@ impl Ui {
             None => {}
         }
 
-        let rim = [(0.0, color(0xFFFFFF, 0.22)), (0.5, color(0xFFFFFF, 0.07)), (1.0, color(0xFFFFFF, 0.12))];
-        p.stroke(&outline, shapes::linear(0.0, 0.0, 0.0, h, &rim), 1.0);
+        p.stroke(&shapes::rounded_rect(0.5, 0.5, WIDTH - 1.0, h - 1.0, RADIUS - 0.5), Shader::SolidColor(color(0xFFFFFF, 0.09)), 1.0);
         // clips what slid past the outline (pages, sheet)
         if let Some(mut m) = Mask::new(p.pm.width(), p.pm.height()) {
             m.fill_path(&outline, FillRule::Winding, true, p.transform());

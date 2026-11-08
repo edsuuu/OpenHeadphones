@@ -9,7 +9,7 @@ use crate::device::{Command, DeviceState};
 use crate::i18n::{maybe, t, tf};
 use crate::profile::{ButtonCommand, Format, Kind, Profile, Setting};
 use crate::render::painter::Painter;
-use crate::render::{TEXT, TEXT2, WARNING, color, icons, shapes};
+use crate::render::{TEXT, TEXT2, TEXT3, WARNING, color, icons, shapes};
 
 /// A slider being dragged: the setting and the value under the pointer.
 pub(super) struct Drag {
@@ -26,6 +26,15 @@ const MAX_INLINE: usize = 3;
 
 fn label(s: &Setting) -> String {
     t(&format!("setting.{}", s.name))
+}
+
+fn hint(s: &Setting) -> Option<String> {
+    maybe(&format!("setting.{}_hint", s.name))
+}
+
+/// Where an inline choice's options start in its row (under the title and hint).
+fn choice_top(s: &Setting) -> f32 {
+    if hint(s).is_some() { 46.0 } else { 34.0 }
 }
 
 fn option_label(s: &Setting, k: usize) -> String {
@@ -66,121 +75,140 @@ impl Ui {
         profile.settings.iter().find(|x| &x.name == name).is_none_or(|w| self.byte_of(w) == Some(w.on))
     }
 
+    /// How tall the row of `s` is: its card is drawn before the rows.
+    fn row_height(&self, s: &Setting) -> f32 {
+        let hint = hint(s).is_some();
+        match s.kind {
+            Kind::Switch => 44.0 + 6.0 * hint as u8 as f32,
+            Kind::Choice if s.options.len() <= MAX_INLINE => choice_top(s) + 46.0,
+            Kind::Choice | Kind::Button => 44.0,
+            Kind::Level if s.max.saturating_sub(s.min) < MAX_BUTTONS => 50.0,
+            Kind::Level => 68.0,
+            Kind::Info => 40.0,
+        }
+    }
+
     pub(super) fn draw_settings(&mut self, p: &mut Painter, state: &DeviceState, profile: &Profile) {
         let alpha = p.alpha;
         self.clip_top = CONTENT_Y - 8.0;
         let mut y = CONTENT_Y - self.scroll;
-        let mut section = "";
-        for (i, s) in profile.settings.iter().enumerate() {
-            if s.section != section {
-                section = &s.section;
-                y += if i > 0 { 14.0 } else { 4.0 };
-                section_title(p, 16.0, y, &t(&format!("settings.{section}")));
-                y += 8.0;
+        let all = &profile.settings;
+        let mut i = 0;
+        while i < all.len() {
+            // a section: its title, then its rows in one card
+            let section = &all[i].section;
+            let end = all[i..].iter().position(|s| &s.section != section).map_or(all.len(), |n| i + n);
+            section_title(p, 20.0, y + 8.0, &t(&format!("settings.{section}")));
+            y += 18.0;
+            let live: Vec<bool> = all[i..end]
+                .iter()
+                .map(|s| {
+                    let has_value = s.kind == Kind::Button || self.setting_value(s).is_some();
+                    state.connected && has_value && self.setting_live(profile, s)
+                })
+                .collect();
+            // a row that opens a sheet is a button itself
+            let rows: Vec<_> = (i..end)
+                .map(|k| {
+                    let s = &all[k];
+                    let a = match s.kind {
+                        Kind::Choice if s.options.len() > MAX_INLINE => Some(Action::PickOption(k)),
+                        Kind::Button => Some(Action::SettingButton(k)),
+                        _ => None,
+                    };
+                    (self.row_height(s), a.filter(|_| live[k - i]))
+                })
+                .collect();
+            self.group(p, y, &rows);
+            for k in i..end {
+                let (s, h, live) = (&all[k], rows[k - i].0, live[k - i]);
+                p.alpha = alpha * if live { 1.0 } else { 0.4 };
+                match s.kind {
+                    Kind::Switch => self.switch_row(p, k, s, y, h, live),
+                    Kind::Choice if s.options.len() <= MAX_INLINE => self.choice_row(p, k, s, y, live),
+                    Kind::Choice => self.picker_row(p, s, y),
+                    Kind::Level if s.max.saturating_sub(s.min) < MAX_BUTTONS => self.level_row(p, k, s, y, live),
+                    Kind::Level => self.slider_row(p, k, s, y, live),
+                    Kind::Info => self.info_row(p, s, y),
+                    Kind::Button => self.button_row(p, s, y),
+                }
+                y += h;
             }
-            let has_value = s.kind == Kind::Button || self.setting_value(s).is_some();
-            let live = state.connected && has_value && self.setting_live(profile, s);
-            p.alpha = alpha * if live { 1.0 } else { 0.4 };
-            y += match s.kind {
-                Kind::Switch => self.switch_row(p, i, s, y, live),
-                Kind::Choice if s.options.len() <= MAX_INLINE => self.choice_row(p, i, s, y, live),
-                Kind::Choice => self.picker_row(p, i, s, y, live),
-                Kind::Level if s.max.saturating_sub(s.min) < MAX_BUTTONS => self.level_row(p, i, s, y, live),
-                Kind::Level => self.slider_row(p, i, s, y, live),
-                Kind::Info => self.info_row(p, s, y),
-                Kind::Button => self.button_row(p, i, s, y, live),
-            };
+            p.alpha = alpha;
+            y += 16.0;
+            i = end;
         }
-        p.alpha = alpha;
         self.scroll_max = (y + self.scroll - (HEIGHT - 14.0)).max(0.0);
         self.scroll = self.scroll.min(self.scroll_max);
         self.clip_top = 0.0;
     }
 
-    /// Title (+ hint under it) on the left; returns the text's bottom.
-    fn title(&self, p: &mut Painter, s: &Setting, y: f32, room: f32) -> f32 {
-        p.text_fit(16.0, y + 22.0, &label(s), 13.5, room, true, color(TEXT, 1.0), 0.0);
-        match maybe(&format!("setting.{}_hint", s.name)) {
+    /// Title (+ hint under it) on the left, centered in the `h` from `y`.
+    fn title(&self, p: &mut Painter, s: &Setting, y: f32, h: f32, room: f32) {
+        match hint(s) {
             Some(hint) => {
-                p.text_fit(16.0, y + 39.0, &hint, 11.5, room, false, color(TEXT2, 1.0), 0.0);
-                y + 48.0
+                p.text_fit(30.0, y + h / 2.0 - 3.0, &label(s), 12.0, room, false, color(TEXT, 1.0), 0.0);
+                p.text_fit(30.0, y + h / 2.0 + 12.0, &hint, 10.0, room, false, color(TEXT2, 1.0), 0.0);
             }
-            None => y + 32.0,
+            None => p.text_fit(30.0, y + h / 2.0 + 4.5, &label(s), 12.0, room, false, color(TEXT, 1.0), 0.0),
         }
     }
 
-    fn switch_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
-        let bottom = self.title(p, s, y, WIDTH - 32.0 - 60.0);
-        let h = bottom - y + 4.0;
+    fn switch_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, h: f32, live: bool) {
+        self.title(p, s, y, h, WIDTH - 60.0 - 56.0);
         let on = self.byte_of(s) == Some(s.on);
-        self.switch(p, WIDTH - 62.0, y + (h - 28.0) / 2.0, on, live, Action::SettingSwitch(i));
-        h
+        self.switch(p, WIDTH - 76.0, y + h / 2.0 - 14.0, on, live, Action::SettingSwitch(i));
     }
 
-    fn choice_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
-        let top = self.title(p, s, y, WIDTH - 32.0);
+    fn choice_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) {
+        let top = choice_top(s);
+        self.title(p, s, y, top, WIDTH - 60.0);
         let current = self.setting_value(s).and_then(|v| s.current_option(v));
-        let n = s.options.len() as f32;
-        let w = (WIDTH - 32.0 - (n - 1.0) * 8.0) / n;
-        for k in 0..s.options.len() {
-            let (x, a, selected) = (16.0 + k as f32 * (w + 8.0), Action::SettingOption(i, k), current == Some(k));
-            if live {
-                self.target(p, x, top, w, 34.0, a);
-            }
-            let mut g = self.glass(a, p);
-            g.on = self.active(a, selected);
-            p.glass(x, top, w, 34.0, 13.0, g);
-            let c = color(if selected { 0xFFFFFF } else { TEXT2 }, 1.0);
-            p.text_fit(x + w / 2.0, top + 21.5, &option_label(s, k), 12.5, w - 12.0, selected, c, 0.5);
-        }
-        top + 44.0 - y
+        let items: Vec<_> = (0..s.options.len()).map(|k| (Action::SettingOption(i, k), current == Some(k))).collect();
+        let room = (WIDTH - 66.0) / items.len() as f32 - 12.0;
+        self.segmented(p, 30.0, y + top, WIDTH - 60.0, 34.0, &items, live, true, |p, k, cx, cy, c| {
+            p.text_fit(cx, cy + 4.0, &option_label(s, k), 11.0, room, false, c, 0.5)
+        });
     }
 
-    fn picker_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
-        let a = Action::PickOption(i);
-        if live {
-            self.target(p, 16.0, y + 4.0, WIDTH - 32.0, 40.0, a);
-        }
-        p.glass(16.0, y + 4.0, WIDTH - 32.0, 40.0, 14.0, self.glass(a, p));
+    fn picker_row(&mut self, p: &mut Painter, s: &Setting, y: f32) {
         let title = label(s);
-        p.text(30.0, y + 29.0, &title, 13.0, true, color(TEXT, 1.0), 0.0);
+        p.text(30.0, y + 26.5, &title, 12.0, false, color(TEXT, 1.0), 0.0);
         let current = self.setting_value(s).and_then(|v| s.current_option(v));
         let value = current.map_or("–".to_string(), |k| option_label(s, k));
-        let room = WIDTH - 32.0 - 14.0 - p.measure(&title, 13.0, true) - 16.0 - 34.0;
-        p.text_fit(WIDTH - 50.0, y + 29.0, &value, 12.5, room, false, color(TEXT2, 1.0), 1.0);
-        p.icon(icons::CHEVRON_DOWN, WIDTH - 34.0, y + 24.0, 14.0, color(TEXT2, 1.0), 1.8);
-        50.0
+        let room = WIDTH - 60.0 - p.measure(&title, 12.0, false) - 30.0;
+        p.text_fit(WIDTH - 48.0, y + 26.5, &value, 11.5, room, false, color(TEXT2, 1.0), 1.0);
+        p.icon(icons::CHEVRON_RIGHT, WIDTH - 36.0, y + 22.0, 12.0, color(TEXT3, 1.0), 2.0);
     }
 
     /// The same row as the ANC intensity: a button per step, the bar growing with it.
-    fn level_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
+    fn level_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) {
         let current = self.byte_of(s);
         let steps = s.max - s.min + 1;
-        let x0 = WIDTH - 16.0 - (steps as f32 * 18.0 + (steps - 1) as f32 * 5.0);
-        p.text_fit(16.0, y + 22.0, &label(s), 13.5, x0 - 24.0, true, color(TEXT, 1.0), 0.0);
+        let x0 = WIDTH - 30.0 - (steps as f32 * 18.0 + (steps - 1) as f32 * 5.0);
+        p.text_fit(30.0, y + 22.0, &label(s), 12.0, x0 - 40.0, false, color(TEXT, 1.0), 0.0);
         let value = current.map_or("–".to_string(), |n| level_text(s, n));
-        p.text_fit(16.0, y + 39.0, &value, 11.5, x0 - 24.0, false, color(TEXT2, 1.0), 0.0);
+        p.text_fit(30.0, y + 37.0, &value, 10.0, x0 - 40.0, false, color(TEXT2, 1.0), 0.0);
         for n in s.min..=s.max {
             let (x, yb, a) = (x0 + (n - s.min) as f32 * 23.0, y + 12.0, Action::SettingLevel(i, n));
             if live {
                 self.target(p, x - 2.5, yb - 4.0, 23.0, 34.0, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, current.is_some_and(|k| k >= n));
             p.glass(x, yb, 18.0, 26.0, 6.0, g);
             let bar = 3.0 + 12.0 * (n - s.min + 1) as f32 / steps as f32;
             let fill = Shader::SolidColor(color(0xFFFFFF, 0.3 + 0.5 * g.on));
             p.fill(&shapes::rounded_rect(x + 6.0, yb + 21.0 - bar, 6.0, bar, 1.5), fill);
         }
-        52.0
     }
 
-    fn slider_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
+    fn slider_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) {
         let current = self.byte_of(s);
-        p.text(16.0, y + 22.0, &label(s), 13.5, true, color(TEXT, 1.0), 0.0);
+        p.text(30.0, y + 24.0, &label(s), 12.0, false, color(TEXT, 1.0), 0.0);
         let value = current.map_or("–".to_string(), |n| level_text(s, n));
-        p.text(WIDTH - 16.0, y + 22.0, &value, 12.0, false, color(TEXT2, 1.0), 1.0);
-        let (x0, x1, ty) = (TRACK.0, TRACK.1, y + 46.0);
+        p.text(WIDTH - 30.0, y + 24.0, &value, 11.0, false, color(TEXT2, 1.0), 1.0);
+        let (x0, x1, ty) = (TRACK.0, TRACK.1, y + 48.0);
         let a = Action::Slider(i);
         if live {
             self.target(p, x0 - 14.0, ty - 16.0, x1 - x0 + 28.0, 32.0, a);
@@ -195,26 +223,20 @@ impl Ui {
         let kx = current.map_or(origin, at);
         let (from, to) = if kx < origin { (kx, origin) } else { (origin, kx) };
         p.fill(&shapes::rounded_rect(from, ty - 2.0, to - from, 4.0, 2.0), shapes::accent(x0, x1 - x0, 1.0));
-        p.glass(kx - 11.0, ty - 11.0, 22.0, 22.0, 11.0, self.glass(a, p));
-        66.0
+        let r = 9.0 + 1.5 * self.glass(a).hover;
+        p.fill(&shapes::circle(kx, ty + 1.0, r), Shader::SolidColor(color(0, 0.25)));
+        p.fill(&shapes::circle(kx, ty, r), Shader::SolidColor(color(0xFFFFFF, 1.0)));
     }
 
-    fn info_row(&mut self, p: &mut Painter, s: &Setting, y: f32) -> f32 {
+    fn info_row(&mut self, p: &mut Painter, s: &Setting, y: f32) {
         let value = self.setting_value(s).map_or("–".to_string(), |v| info_text(s, v));
-        p.text(16.0, y + 22.0, &label(s), 13.0, false, color(TEXT2, 1.0), 0.0);
-        p.text(WIDTH - 16.0, y + 22.0, &value, 13.0, true, color(TEXT, 1.0), 1.0);
-        32.0
+        p.text(30.0, y + 24.5, &label(s), 12.0, false, color(TEXT2, 1.0), 0.0);
+        p.text(WIDTH - 30.0, y + 24.5, &value, 12.0, true, color(TEXT, 1.0), 1.0);
     }
 
-    fn button_row(&mut self, p: &mut Painter, i: usize, s: &Setting, y: f32, live: bool) -> f32 {
-        let a = Action::SettingButton(i);
-        if live {
-            self.target(p, 16.0, y + 6.0, WIDTH - 32.0, 40.0, a);
-        }
-        p.glass(16.0, y + 6.0, WIDTH - 32.0, 40.0, 14.0, self.glass(a, p));
+    fn button_row(&mut self, p: &mut Painter, s: &Setting, y: f32) {
         let danger = s.command == Some(ButtonCommand::FactoryReset);
-        p.text(WIDTH / 2.0, y + 31.0, &label(s), 13.0, true, color(if danger { WARNING } else { TEXT }, 1.0), 0.5);
-        52.0
+        p.text(WIDTH / 2.0, y + 26.5, &label(s), 12.0, true, color(if danger { WARNING } else { TEXT }, 1.0), 0.5);
     }
 
     pub(super) fn draw_options_sheet(&mut self, p: &mut Painter, i: usize) {
@@ -228,7 +250,7 @@ impl Ui {
             if self.sheet_open {
                 self.target(p, 16.0, y, WIDTH - 32.0, 38.0, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, selected);
             p.glass(16.0, y, WIDTH - 32.0, 38.0, 13.0, g);
             let c = color(if selected { 0xFFFFFF } else { TEXT }, 1.0);
@@ -254,7 +276,7 @@ impl Ui {
             if self.sheet_open {
                 self.target(p, x, y, w, 44.0, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, primary);
             p.glass(x, y, w, 44.0, 16.0, g);
             p.text(x + w / 2.0, y + 27.0, &t(key), 13.5, true, color(0xFFFFFF, 1.0), 0.5);

@@ -1,6 +1,6 @@
 //! Paths and gradients.
 
-use tiny_skia::{Color, GradientStop, LinearGradient, Path, PathBuilder, Point, RadialGradient, Shader, SpreadMode, Transform};
+use tiny_skia::{Color, GradientStop, LinearGradient, Path, PathBuilder, Point, Shader, SpreadMode, Transform};
 
 use super::{ACCENT1, ACCENT2, color};
 
@@ -23,18 +23,6 @@ pub fn rounded_rect(x: f32, y: f32, w: f32, h: f32, r: f32) -> Path {
 
 pub fn circle(cx: f32, cy: f32, r: f32) -> Path {
     PathBuilder::from_circle(cx, cy, r).unwrap()
-}
-
-/// Arc from `a0` to `a1` degrees (0 = top, clockwise).
-pub fn arc(cx: f32, cy: f32, r: f32, a0: f32, a1: f32) -> Option<Path> {
-    let mut pb = PathBuilder::new();
-    let n = ((a1 - a0).abs() / 6.0).ceil().max(1.0) as usize;
-    for i in 0..=n {
-        let a = (a0 + (a1 - a0) * i as f32 / n as f32).to_radians();
-        let (x, y) = (cx + r * a.sin(), cy - r * a.cos());
-        if i == 0 { pb.move_to(x, y) } else { pb.line_to(x, y) }
-    }
-    pb.finish()
 }
 
 /// Mini SVG path: absolute M L H V C Q Z only (enough for the icons).
@@ -103,12 +91,6 @@ pub fn linear(x0: f32, y0: f32, x1: f32, y1: f32, stops: &[(f32, Color)]) -> Sha
     let s = stops.iter().map(|(p, c)| GradientStop::new(*p, *c)).collect();
     LinearGradient::new(Point::from_xy(x0, y0), Point::from_xy(x1, y1), s, SpreadMode::Pad, Transform::identity())
         .unwrap_or(Shader::SolidColor(stops[0].1))
-}
-
-pub fn radial(cx: f32, cy: f32, r: f32, stops: &[(f32, Color)]) -> Shader<'static> {
-    let s = stops.iter().map(|(p, c)| GradientStop::new(*p, *c)).collect();
-    let c = Point::from_xy(cx, cy);
-    RadialGradient::new(c, c, r, s, SpreadMode::Pad, Transform::identity()).unwrap_or(Shader::SolidColor(stops[0].1))
 }
 
 /// The accent gradient (orange → coral), horizontal.

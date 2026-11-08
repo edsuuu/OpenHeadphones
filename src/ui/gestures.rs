@@ -6,7 +6,10 @@ use crate::device::{Command, DeviceState};
 use crate::i18n::{t, tf};
 use crate::profile::{Profile, Side};
 use crate::render::painter::Painter;
-use crate::render::{TEXT, TEXT2, color, icons};
+use crate::render::{TEXT, TEXT2, TEXT3, color, icons};
+
+/// A gesture's row.
+const ROW: f32 = 44.0;
 
 fn action_label(profile: &Profile, id: Option<u8>) -> String {
     match id {
@@ -28,29 +31,26 @@ impl Ui {
         if !state.connected {
             p.alpha *= 0.4;
         }
-        let mut y = CONTENT_Y + 12.0;
+        let mut y = CONTENT_Y;
         for side in [Side::Left, Side::Right] {
             let gestures: Vec<_> = profile.gestures.iter().filter(|g| g.side == side).collect();
             if gestures.is_empty() {
                 continue;
             }
-            section_title(p, 16.0, y, &t(side.key()).to_uppercase());
-            y += 10.0;
+            section_title(p, 20.0, y + 8.0, &t(side.key()));
+            y += 18.0;
+            let rows: Vec<_> = gestures.iter().map(|g| (ROW, state.connected.then_some(Action::PickGesture(g.id)))).collect();
+            self.group(p, y, &rows);
             for g in gestures {
-                let a = Action::PickGesture(g.id);
-                if state.connected {
-                    self.target(p, 16.0, y, WIDTH - 32.0, 40.0, a);
-                }
-                p.glass(16.0, y, WIDTH - 32.0, 40.0, 14.0, self.glass(a, p));
                 let label = t(&format!("gesture.{}", g.kind));
-                p.text(30.0, y + 25.0, &label, 12.5, false, color(TEXT2, 1.0), 0.0);
+                p.text(30.0, y + 26.0, &label, 12.0, false, color(TEXT, 1.0), 0.0);
                 let current = action_label(profile, pairs.iter().find(|x| x.0 == g.id).map(|x| x.1));
-                let room = WIDTH - 32.0 - 14.0 - p.measure(&label, 12.5, false) - 16.0 - 34.0;
-                p.text_fit(WIDTH - 50.0, y + 25.0, &current, 13.0, room, true, color(TEXT, 1.0), 1.0);
-                p.icon(icons::CHEVRON_DOWN, WIDTH - 34.0, y + 20.0, 14.0, color(TEXT2, 1.0), 1.8);
-                y += 44.0;
+                let room = WIDTH - 60.0 - p.measure(&label, 12.0, false) - 30.0;
+                p.text_fit(WIDTH - 48.0, y + 26.0, &current, 11.5, room, false, color(TEXT2, 1.0), 1.0);
+                p.icon(icons::CHEVRON_RIGHT, WIDTH - 36.0, y + 22.0, 12.0, color(TEXT3, 1.0), 2.0);
+                y += ROW;
             }
-            y += 22.0;
+            y += 16.0;
         }
         p.alpha = alpha;
     }
@@ -67,7 +67,7 @@ impl Ui {
             if self.sheet_open {
                 self.target(p, 16.0, y, WIDTH - 32.0, 38.0, a);
             }
-            let mut gl = self.glass(a, p);
+            let mut gl = self.glass(a);
             gl.on = self.active(a, selected);
             p.glass(16.0, y, WIDTH - 32.0, 38.0, 13.0, gl);
             let c = color(if selected { 0xFFFFFF } else { TEXT }, 1.0);

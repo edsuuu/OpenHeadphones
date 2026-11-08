@@ -23,17 +23,16 @@ const SETTINGS: [&str; 5] = [
 
 pub fn run(dir: &str, profiles: Vec<Rc<Profile>>) {
     let fonts = Fonts::load();
-    let s = 1.2; // how it looks on a 100% monitor
+    let s = 1.0; // how it looks on a 100% monitor
     let (w, h) = ((ui::WIDTH * s).round() as u32, ((ui::HEIGHT + ui::GAP) * s).round() as u32);
     let mut pm = Pixmap::new(w, h).unwrap();
     let save = |pm: &Pixmap, name: &str| {
         pm.save_png(format!("{dir}/{name}.png")).unwrap_or_else(|e| panic!("{}: {e}", t("error.snapshot")));
     };
-    // the first model with an id stands in for a real device
-    let model = profiles.iter().find(|p| !p.product_ids.is_empty()).cloned().unwrap_or_default();
+    // the Tune Flex 2 stands in for a real device: the settings below are its own packets
+    let model = profiles.iter().find(|p| p.product_ids.contains(&0x210e)).cloned().unwrap_or_default();
 
     let mut u = Ui::new(profiles);
-    u.tip_x = 290.0;
     u.settle();
     u.draw(&mut pm, s, &fonts);
     save(&pm, "empty");

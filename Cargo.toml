@@ -32,6 +32,15 @@ objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 ksni = { version = "0.3", features = ["blocking"] }
 softbuffer = "0.4"
 
+# every frame is drawn on the CPU: unoptimized ~900 ms (one frame per animation), optimized ~11 ms;
+# the dependencies' debug checks alone double it
+[profile.dev]
+opt-level = 3
+
+[profile.dev.package."*"]
+debug-assertions = false
+overflow-checks = false
+
 [profile.release]
 strip = true
 opt-level = 3

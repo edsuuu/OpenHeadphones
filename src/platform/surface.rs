@@ -160,6 +160,7 @@ mod mac {
         window: Arc<Window>,
         layer: Retained<CALayer>,
         colors: CFRetained<CGColorSpace>,
+        size: (u32, u32),
         pos: (i32, i32),
     }
 
@@ -175,11 +176,14 @@ mod mac {
                 w.setHasShadow(false);
             }
             let colors = CGColorSpace::new_device_rgb().expect("CGColorSpace");
-            Surface { window, layer, colors, pos: (i32::MIN, 0) }
+            Surface { window, layer, colors, size: (0, 0), pos: (i32::MIN, 0) }
         }
 
         pub fn present(&mut self, rgba: &[u8], w: u32, h: u32, x: i32, y: i32) {
-            let _ = self.window.request_inner_size(PhysicalSize::new(w, h));
+            if self.size != (w, h) {
+                let _ = self.window.request_inner_size(PhysicalSize::new(w, h));
+                self.size = (w, h);
+            }
             if self.pos != (x, y) {
                 self.window.set_outer_position(PhysicalPosition::new(x, y));
                 self.pos = (x, y);

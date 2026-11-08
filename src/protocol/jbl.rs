@@ -83,7 +83,7 @@ pub fn encode(cmd: &Command) -> Vec<u8> {
         Command::Adaptive(on) => vec![0xAA, 0x91, 0x03, 0x20, 0x01, *on as u8],
         Command::AncLevel(n) => vec![0xAA, 0x91, 0x03, 0x20, 0x04, *n],
         Command::AmbientLevel(n) => vec![0xAA, 0x91, 0x03, 0x20, 0xA1, *n],
-        Command::Eq(bands) => encode_eq(bands.as_deref()),
+        Command::Eq(eq) => encode_eq(eq.as_ref().map(|(category, bands)| (*category, bands.as_slice()))),
         Command::Gestures(v) => {
             [vec![0xAA, 0x77, 1 + 2 * v.len() as u8, 0], v.iter().flat_map(|&(g, a)| [g, a]).collect()].concat()
         }
@@ -137,9 +137,10 @@ pub fn follow_up(cmd: &Command) -> Option<Vec<u8>> {
     Some(q.to_vec())
 }
 
-/// EQ "Q×10" (sub 3) in category 230 (custom) or 0 (off).
-fn encode_eq(bands: Option<&[(f32, f32)]>) -> Vec<u8> {
-    let mut p = vec![3, if bands.is_some() { 230 } else { 0 }];
+/// EQ "Q×10" (sub 3) in the preset's category (230 = custom), or category 0 (off).
+fn encode_eq(eq: Option<(u8, &[(f32, f32)])>) -> Vec<u8> {
+    let bands = eq.map(|e| e.1);
+    let mut p = vec![3, eq.map_or(0, |e| e.0)];
     // ponytail: calibration 0, what the app sends when libcalibrationLib does not load. The lib
     // subtracts the Design EQ (cat 202) peak from the total peak; port it if +6 dB distorts.
     p.extend(0f32.to_le_bytes());
@@ -309,10 +310,11 @@ mod tests {
         assert_eq!(encode(&Command::Eq(None)), hex("aa a2 10 00 03 00 00000000 00 00000000 00000000 00"));
         let mut g = [0.0; 10];
         (g[1], g[2]) = (4.0, 4.0);
-        let p = encode(&Command::Eq(Some(eq(&g))));
+        let p = encode(&Command::Eq(Some((230, eq(&g)))));
         assert_eq!(p.len(), 120);
         assert_eq!(p[..20], hex("aa a2 74 00 03 e6 00000000 30 00000000 00000000 0a"));
         assert_eq!(p[30..40], hex("01 00008040 00008042 0a")); // 64 Hz band, +4 dB, Q 1.0
+        assert_eq!(encode(&Command::Eq(Some((7, eq(&g)))))[5], 7); // a preset (Studio) goes in its category
         assert_eq!(encode(&Command::Gestures(vec![(6, 0x0b), (9, 8)])), hex("aa 77 05 00 06 0b 09 08"));
         assert_eq!(encode(&Command::Beep { left: Some(true), right: None }), hex("aa 23 03 00 01 ff"));
     }
@@ -346,7 +348,7 @@ mod tests {
         // echo of a custom EQ
         let mut g = [0.0; 10];
         g[1] = 4.0;
-        let mut echo = encode_eq(Some(&eq(&g)));
+        let mut echo = encode_eq(Some((7, &eq(&g))));
         echo[4] = 4;
         apply(&mut s, &echo);
         assert_eq!(s.eq, Some(Some(g.to_vec())));

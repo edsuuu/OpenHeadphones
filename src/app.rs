@@ -18,7 +18,7 @@ use crate::i18n::t;
 use crate::platform::surface::Surface;
 use crate::platform::{Anchor, tray};
 use crate::render::fonts::Fonts;
-use crate::render::genie::genie;
+use crate::render::genie::{genie, smooth};
 use crate::ui::{self, Ui};
 
 pub enum AppEvent {
@@ -35,8 +35,8 @@ enum Phase {
     Closing(Instant),
 }
 
-const OPEN_SECS: f32 = 0.42;
-const CLOSE_SECS: f32 = 0.30;
+const OPEN_SECS: f32 = 0.8;
+const CLOSE_SECS: f32 = 0.55;
 
 pub struct App {
     proxy: EventLoopProxy<AppEvent>,
@@ -56,6 +56,9 @@ pub struct App {
     warped: Vec<u8>,
     dirty: bool,
     last_step: Instant,
+    /// One frame per `period`, a whole number of screen refreshes.
+    period: Duration,
+    next_frame: Instant,
     open_at_start: bool,
     /// `--pinned`: does not close when it loses focus (for testing).
     pinned: bool,
@@ -80,6 +83,8 @@ impl App {
             warped: vec![],
             dirty: false,
             last_step: Instant::now(),
+            period: Duration::from_secs_f64(1.0 / 60.0),
+            next_frame: Instant::now(),
             open_at_start,
             pinned,
         }
@@ -89,7 +94,8 @@ impl App {
     fn progress(&self) -> f32 {
         let x = |t: Instant, secs: f32| (t.elapsed().as_secs_f32() / secs).min(1.0);
         match self.phase {
-            Phase::Opening(t) => (1.0 - x(t, OPEN_SECS)).powi(3),
+            // eases in and out: (1 - x)³ did half the motion in the first 85 ms, a jolt
+            Phase::Opening(t) => 1.0 - smooth(x(t, OPEN_SECS)),
             Phase::Closing(t) => x(t, CLOSE_SECS).powi(2),
             Phase::Open => 0.0,
             Phase::Closed => 1.0,
@@ -108,8 +114,12 @@ impl App {
             .or_else(|| el.available_monitors().next());
         let Some(monitor) = monitor else { return };
         let (mp, ms, sf) = (monitor.position(), monitor.size(), monitor.scale_factor());
-        // 20% bigger than the system scale, but fitting the screen height
-        let s = (sf as f32 * 1.2).min(ms.height as f32 * 0.85 / (ui::HEIGHT + ui::GAP));
+        // at most ~60 frames per second (one takes up to ~18 ms to draw), but a whole number of
+        // refreshes: 2 per frame on 120 Hz, 3 on 144 Hz
+        let hz = monitor.refresh_rate_millihertz().map_or(60.0, |m| m as f64 / 1000.0);
+        self.period = Duration::from_secs_f64((hz / 61.0).ceil() / hz);
+        // the system scale (the size of the macOS panel in Swift), but fitting the screen height
+        let s = (sf as f32).min(ms.height as f32 * 0.85 / (ui::HEIGHT + ui::GAP));
         // no click (--open, the menu): where the icon is; failing that, the corner of the system bar
         let anchor = anchor.or_else(|| self.tray.as_ref().and_then(tray::anchor_now));
         let on_top = !cfg!(windows); // GNOME and macOS: bar at the top
@@ -129,7 +139,7 @@ impl App {
         self.pos = (x.round() as i32, y.round() as i32);
         self.tip_x = (a.x - x) as f32;
         self.scale = s;
-        (self.ui.tip_x, self.ui.tip_on_top) = (self.tip_x / s, a.on_top);
+        self.ui.tip_on_top = a.on_top;
         self.ui.settle();
         if self.frame.as_ref().is_none_or(|p| (p.width(), p.height()) != (w, h)) {
             self.frame = Pixmap::new(w, h);
@@ -137,7 +147,7 @@ impl App {
         }
         self.phase = Phase::Opening(Instant::now());
         self.last_step = Instant::now();
-        self.draw(); // first (empty) frame before showing up
+        self.draw(true); // first (empty) frame before showing up
         window.set_visible(true);
         window.focus_window();
     }
@@ -149,13 +159,18 @@ impl App {
             let t0 = Instant::now().checked_sub(Duration::from_secs_f32(p.sqrt() * CLOSE_SECS)).unwrap_or_else(Instant::now);
             self.phase = Phase::Closing(t0);
             self.closed_at = Instant::now();
+            self.last_step = Instant::now(); // idle while open is not a hitch
         }
     }
 
-    fn draw(&mut self) {
+    /// `ui`: draws the panel again; without it only the genie moves the last drawing (the panel
+    /// with a device takes 12–18 ms to draw, more than a 60 Hz frame; the genie 3).
+    fn draw(&mut self, ui: bool) {
         let p = self.progress();
         let (Some(frame), Some(surface)) = (self.frame.as_mut(), self.surface.as_mut()) else { return };
-        self.ui.draw(frame, self.scale, &self.fonts);
+        if ui {
+            self.ui.draw(frame, self.scale, &self.fonts);
+        }
         let (w, h) = (frame.width() as usize, frame.height() as usize);
         genie(frame.data(), &mut self.warped, w, h, p, self.tip_x, 26.0 * self.scale, self.ui.tip_on_top);
         surface.present(&self.warped, w as u32, h as u32, self.pos.0, self.pos.1);
@@ -257,13 +272,28 @@ impl ApplicationHandler<AppEvent> for App {
             return;
         }
         let now = Instant::now();
-        let dt = (now - self.last_step).as_secs_f32().min(0.05);
+        // at the screen's beat: a 14 ms timer on a 60 Hz screen showed some frames twice and skipped others
+        if now < self.next_frame {
+            el.set_control_flow(ControlFlow::WaitUntil(self.next_frame));
+            return;
+        }
+        let on_beat = now - self.next_frame < self.period;
+        self.next_frame = if on_beat { self.next_frame + self.period } else { now + self.period };
+        let gap = now - self.last_step;
+        // a hitch (macOS takes ~50 ms to show the window) pauses the genie instead of skipping a third of it
+        if let Phase::Opening(t) | Phase::Closing(t) = &mut self.phase
+            && gap > Duration::from_millis(34)
+        {
+            *t += gap - Duration::from_millis(16);
+        }
+        let dt = gap.as_secs_f32().min(0.05);
         self.last_step = now;
         let moving = self.ui.step(dt);
         let animating = matches!(self.phase, Phase::Opening(_) | Phase::Closing(_));
         if animating || moving || self.dirty {
+            let ui = moving || self.dirty;
             self.dirty = false;
-            self.draw();
+            self.draw(ui);
         }
         match self.phase {
             Phase::Opening(t) if t.elapsed().as_secs_f32() >= OPEN_SECS => {
@@ -279,6 +309,6 @@ impl ApplicationHandler<AppEvent> for App {
             _ => {}
         }
         let busy = animating || moving || self.dirty;
-        el.set_control_flow(if busy { ControlFlow::WaitUntil(now + Duration::from_millis(14)) } else { ControlFlow::Wait });
+        el.set_control_flow(if busy { ControlFlow::WaitUntil(self.next_frame) } else { ControlFlow::Wait });
     }
 }

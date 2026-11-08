@@ -6,8 +6,8 @@ use tiny_skia::{
 };
 
 use super::fonts::Fonts;
-use super::shapes::{accent, arc, circle, linear, radial, rounded_rect, svg_path};
-use super::{GREEN, TEXT, color, icons};
+use super::shapes::{accent, circle, rounded_rect, svg_path};
+use super::color;
 
 /// Every letter comes out 10% bigger than the layout asks for.
 const TEXT_SCALE: f32 = 1.1;
@@ -18,8 +18,6 @@ pub struct Glass {
     pub hover: f32,
     pub press: f32,
     pub on: f32,
-    /// Pointer in the panel's logical px, for the light that follows the mouse.
-    pub light: Option<(f32, f32)>,
 }
 
 pub struct Painter<'a> {
@@ -143,33 +141,17 @@ impl Painter<'_> {
         self.text(x, y, txt, size, bold, c, anchor);
     }
 
-    /// Liquid Glass style button: translucent body, shine on top, a rim that catches light at
-    /// the top and bottom, and a light that follows the pointer (iOS `isInteractive`).
+    /// Flat glass: a faint white body with a hairline rim, the accent gradient when on.
     pub fn glass(&mut self, x: f32, y: f32, w: f32, h: f32, r: f32, g: Glass) {
-        let k = g.press * 1.5; // sinks a little when pressed
+        let k = g.press; // sinks a little when pressed
         let (x, y, w, h) = (x + k, y + k, w - 2.0 * k, h - 2.0 * k);
         let shape = rounded_rect(x, y, w, h, r);
-        // short shadow
-        self.fill(&rounded_rect(x - 0.5, y + 1.5, w + 1.0, h + 1.0, r + 0.5), Shader::SolidColor(color(0, 0.22)));
-        // body
-        let lift = 0.04 * g.hover + 0.05 * g.press;
-        self.fill(&shape, linear(0.0, y, 0.0, y + h, &[(0.0, color(0xFFFFFF, 0.10 + lift)), (1.0, color(0xFFFFFF, 0.035 + lift))]));
+        self.fill(&shape, Shader::SolidColor(color(0xFFFFFF, 0.055 + 0.045 * g.hover + 0.03 * g.press)));
         if g.on > 0.0 {
-            self.fill(&shape, accent(x, w, 0.95 * g.on));
+            self.fill(&shape, accent(x, w, g.on));
         }
-        // specular shine
-        let top = 0.16 + 0.06 * g.hover + 0.10 * g.on;
-        self.fill(&shape, linear(0.0, y, 0.0, y + h * 0.55, &[(0.0, color(0xFFFFFF, top)), (1.0, color(0xFFFFFF, 0.0))]));
-        // pointer light
-        if let Some((px, py)) = g.light.filter(|_| g.hover > 0.01) {
-            let a = (0.12 + 0.10 * g.press) * g.hover;
-            self.fill(&shape, radial(px, py, w.max(h) * 0.8, &[(0.0, color(0xFFFFFF, a)), (1.0, color(0xFFFFFF, 0.0))]));
-        }
-        // rim: bright on top, fading in the middle, faint again at the bottom
         let rim = rounded_rect(x + 0.5, y + 0.5, w - 1.0, h - 1.0, r - 0.5);
-        let bright = 0.42 + 0.2 * g.on;
-        let stops = [(0.0, color(0xFFFFFF, bright)), (0.45, color(0xFFFFFF, 0.06)), (1.0, color(0xFFFFFF, 0.16))];
-        self.stroke(&rim, linear(0.0, y, 0.0, y + h, &stops), 1.0);
+        self.stroke(&rim, Shader::SolidColor(color(0xFFFFFF, 0.08 + 0.14 * g.on)), 1.0);
     }
 
     /// 24×24 stroke icon centered at (cx, cy), `size` px.
@@ -179,36 +161,13 @@ impl Painter<'_> {
         self.stroke_with(&svg_path(d), Shader::SolidColor(c), width / k, None, local);
     }
 
-    /// Product photo in a `size`×`size` box centered at (cx, cy), with a glow behind it
-    /// (black headphones vanish on a dark panel without it).
+    /// Product photo in a `size`×`size` box centered at (cx, cy), on a faint disc (black
+    /// headphones vanish on a dark panel without it).
     pub fn photo(&mut self, img: &Pixmap, cx: f32, cy: f32, size: f32) {
-        let glow = radial(cx, cy, size * 0.5, &[(0.0, color(0xFFFFFF, 0.16)), (1.0, color(0xFFFFFF, 0.0))]);
-        self.fill(&circle(cx, cy, size * 0.5), glow);
+        self.fill(&circle(cx, cy, size * 0.5), Shader::SolidColor(color(0xFFFFFF, 0.045)));
         let k = size / img.width() as f32;
         let t = self.transform().pre_concat(Transform::from_row(k, 0.0, 0.0, k, cx - size / 2.0, cy - size / 2.0));
         let paint = PixmapPaint { opacity: self.alpha, quality: FilterQuality::Bicubic, ..Default::default() };
         self.pm.draw_pixmap(0, 0, img.as_ref(), &paint, t, None);
-    }
-
-    /// Battery ring with the number in the middle.
-    pub fn ring(&mut self, cx: f32, cy: f32, r: f32, level: Option<u8>, charging: bool) {
-        if let Some(a) = arc(cx, cy, r, 0.0, 360.0) {
-            self.stroke(&a, Shader::SolidColor(color(0xFFFFFF, 0.08)), 4.5);
-        }
-        let n = level.unwrap_or(0).min(100) as f32;
-        if n > 0.0
-            && let Some(a) = arc(cx, cy, r, 0.0, 360.0 * n / 100.0)
-        {
-            let sh = if charging { Shader::SolidColor(color(GREEN, 1.0)) } else { accent(cx - r, 2.0 * r, 1.0) };
-            self.stroke(&a, sh, 4.5);
-        }
-        let txt = level.map_or("–".to_string(), |n| format!("{n}%"));
-        self.text(cx, cy + 4.5, &txt, 13.0, true, color(TEXT, 1.0), 0.5);
-        if charging {
-            let k = 11.0 / 24.0;
-            let local = Transform::from_row(k, 0.0, 0.0, k, cx + r * 0.62 - 5.5, cy - r - 4.0);
-            self.fill(&circle(cx + r * 0.62, cy - r + 1.5, 8.0), Shader::SolidColor(color(0x0E0F14, 1.0)));
-            self.fill_with(&svg_path(icons::BOLT), Shader::SolidColor(color(GREEN, 1.0)), local);
-        }
     }
 }

@@ -59,6 +59,9 @@ pub struct Eq {
 pub struct Preset {
     /// Label key `eq.<name>`.
     pub name: String,
+    /// JBL's category for it, sent along: the headphones (and the phone app) then know which preset
+    /// is on. None: sent as the user's own curve.
+    pub category: Option<u8>,
     pub gains: Vec<f32>,
 }
 
@@ -241,7 +244,7 @@ mod tests {
     fn finds_the_right_profile() {
         let all = load_all();
         let flex = find(&all, Some(0x210e), "").unwrap();
-        assert_eq!((flex.name.as_str(), flex.gestures.len(), flex.actions.len()), ("JBL Tune Flex 2", 8, 10));
+        assert_eq!((flex.name.as_str(), flex.gestures.len(), flex.actions.len()), ("JBL Tune Flex 2", 8, 12));
         assert!(flex.image(Some(14)).unwrap().ends_with("ghost-black.png"));
         assert!(flex.image(Some(99)).unwrap().ends_with("black.png"));
         assert_eq!(find(&all, None, "JBL Tune Flex 2").unwrap().name, "JBL Tune Flex 2");
@@ -253,10 +256,9 @@ mod tests {
     fn profiles_are_consistent() {
         let dirs = std::fs::read_dir(crate::data::root().unwrap().join("devices")).unwrap().count();
         assert_eq!(load_all().len(), dirs, "a profile failed to load (see the error above)");
+        // photos may be missing: they are JBL's, made locally by tools/import_jbl_apk.py (the panel
+        // shows the system's headphones icon instead)
         for p in load_all() {
-            for file in p.images.colors.values().chain(&p.images.default) {
-                assert!(p.dir.join(file).is_file(), "{}: missing {file}", p.name);
-            }
             if let Some(eq) = &p.eq {
                 assert!(eq.presets.iter().all(|x| x.gains.len() == eq.bands.len()), "{}: preset size", p.name);
             }

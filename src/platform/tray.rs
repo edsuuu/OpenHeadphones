@@ -3,28 +3,18 @@
 
 use std::sync::Mutex;
 
-use tiny_skia::{FillRule, Paint, Pixmap, Transform};
 use winit::event_loop::EventLoopProxy;
 
 use super::Anchor;
 use crate::app::AppEvent;
 use crate::i18n::t;
-use crate::render::{color, icons, shapes};
 
-/// An earbud, white (black "template" on macOS, which the system tints). Straight RGBA.
-fn pixels(size: u32) -> Vec<u8> {
-    let mut pm = Pixmap::new(size, size).unwrap();
-    let mut paint = Paint::default();
-    paint.anti_alias = true;
-    let c = if cfg!(target_os = "macos") { 0x000000 } else { 0xFFFFFF };
-    paint.set_color(color(c, 1.0));
-    let k = size as f32 / 24.0;
-    pm.fill_path(&shapes::svg_path(icons::EARBUD), &paint, FillRule::Winding, Transform::from_scale(k, k), None);
-    let mut v = pm.data().to_vec();
-    for px in v.chunks_exact_mut(4) {
-        px[..3].copy_from_slice(&[(c >> 16) as u8, (c >> 8) as u8, c as u8]);
-    }
-    v
+/// The system's headphones icon, white (black "template" on macOS, which the system tints).
+/// Straight RGBA.
+#[cfg(not(target_os = "linux"))]
+fn pixels(size: u32) -> Option<Vec<u8>> {
+    let c: u8 = if cfg!(target_os = "macos") { 0 } else { 255 };
+    Some(super::headphones_icon(size)?.into_iter().flat_map(|a| [c, c, c, a]).collect())
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -56,7 +46,7 @@ pub fn create(proxy: EventLoopProxy<AppEvent>) -> Option<Handle> {
             let _ = tx.lock().unwrap().send_event(AppEvent::Open(anchor(Some(rect))));
         }
     }));
-    let icon = tray_icon::Icon::from_rgba(pixels(32), 32, 32).ok()?;
+    let icon = tray_icon::Icon::from_rgba(pixels(32)?, 32, 32).ok()?;
     let b = TrayIconBuilder::new().with_menu(Box::new(menu)).with_menu_on_left_click(false).with_tooltip(t("app.name"));
     #[cfg(target_os = "macos")]
     let b = b.with_icon_templated(icon);
@@ -121,10 +111,9 @@ impl ksni::Tray for Tray {
         t("app.name")
     }
 
-    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        // ARGB32 in network order
-        let data = pixels(32).chunks_exact(4).flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
-        vec![ksni::Icon { width: 32, height: 32, data }]
+    /// The icon theme's own headphones.
+    fn icon_name(&self) -> String {
+        "audio-headphones".into()
     }
 
     fn activate(&mut self, x: i32, y: i32) {

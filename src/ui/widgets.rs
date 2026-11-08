@@ -1,39 +1,12 @@
-//! Small pieces the pages share: panel outline, smooth curve, section titles, the on/off switch,
-//! the mini battery and the bottom sheet frame.
+//! Small pieces the pages share: smooth curve, section titles, the on/off switch, the battery
+//! bar, the segmented control, the grouped card and the bottom sheet frame.
 
-use tiny_skia::{Path, PathBuilder, Shader};
+use tiny_skia::{Color, PathBuilder, Shader};
 
-use super::{Action, GAP, HEIGHT, RADIUS, Ui, WIDTH};
+use super::{Action, HEIGHT, RADIUS, Ui, WIDTH};
 use crate::device::NoiseMode;
-use crate::render::painter::Painter;
-use crate::render::{GREEN, SHEET, TEXT, TEXT2, color, icons, shapes};
-
-/// Panel outline with the tail pointing at the tray icon (below, or above with the bar on top).
-pub(super) fn panel_outline(tip_x: f32, on_top: bool, h: f32) -> Path {
-    let (w, r, k, bx) = (WIDTH, RADIUS, RADIUS * 0.4477, tip_x);
-    let mut pb = PathBuilder::new();
-    pb.move_to(r, 0.0);
-    if on_top {
-        pb.line_to(bx - 20.0, 0.0);
-        pb.cubic_to(bx - 9.0, 0.0, bx - 5.0, -GAP + 1.0, bx, -GAP);
-        pb.cubic_to(bx + 5.0, -GAP + 1.0, bx + 9.0, 0.0, bx + 20.0, 0.0);
-    }
-    pb.line_to(w - r, 0.0);
-    pb.cubic_to(w - k, 0.0, w, k, w, r);
-    pb.line_to(w, h - r);
-    pb.cubic_to(w, h - k, w - k, h, w - r, h);
-    if !on_top {
-        pb.line_to(bx + 20.0, h);
-        pb.cubic_to(bx + 9.0, h, bx + 5.0, h + GAP - 1.0, bx, h + GAP);
-        pb.cubic_to(bx - 5.0, h + GAP - 1.0, bx - 9.0, h, bx - 20.0, h);
-    }
-    pb.line_to(r, h);
-    pb.cubic_to(k, h, 0.0, h - k, 0.0, h - r);
-    pb.line_to(0.0, r);
-    pb.cubic_to(0.0, k, k, 0.0, r, 0.0);
-    pb.close();
-    pb.finish().unwrap()
-}
+use crate::render::painter::{Glass, Painter};
+use crate::render::{GREEN, SHEET, TEXT2, TEXT3, color, icons, shapes};
 
 /// Smooth curve (Catmull-Rom) through every point.
 pub(super) fn smooth_curve(pts: &[(f32, f32)]) -> PathBuilder {
@@ -54,8 +27,9 @@ pub(super) fn smooth_curve(pts: &[(f32, f32)]) -> PathBuilder {
     pb
 }
 
+/// Small caps-like title over a group: `y` is the baseline.
 pub(super) fn section_title(p: &mut Painter, x: f32, y: f32, txt: &str) {
-    p.text(x, y, txt, 11.0, true, color(TEXT2, 0.85), 0.0);
+    p.text(x, y, &txt.to_uppercase(), 9.5, true, color(TEXT3, 1.0), 0.0);
 }
 
 pub(super) fn mode_icon(m: NoiseMode) -> &'static str {
@@ -67,38 +41,104 @@ pub(super) fn mode_icon(m: NoiseMode) -> &'static str {
     }
 }
 
-/// Small battery + "L 96%"; returns where it ended.
-pub(super) fn mini_battery(p: &mut Painter, x: f32, y: f32, label: &str, level: u8, charging: bool) -> f32 {
-    let x = x + p.measure(label, 11.5, false) + 5.0;
-    p.text(x - 5.0, y + 4.0, label, 11.5, false, color(TEXT2, 1.0), 1.0);
-    p.stroke(&shapes::rounded_rect(x + 0.5, y - 4.5, 17.0, 9.0, 2.5), Shader::SolidColor(color(0xFFFFFF, 0.35)), 1.0);
-    p.fill(&shapes::rounded_rect(x + 18.5, y - 1.5, 1.5, 3.0, 0.7), Shader::SolidColor(color(0xFFFFFF, 0.35)));
-    let w = 14.0 * level.min(100) as f32 / 100.0;
-    if w > 0.5 {
-        let sh = if charging { Shader::SolidColor(color(GREEN, 1.0)) } else { shapes::accent(x + 2.0, 14.0, 1.0) };
-        p.fill(&shapes::rounded_rect(x + 2.0, y - 3.0, w, 6.0, 1.5), sh);
+/// A capsule 8 px tall from (`x`, `y` = its top), filled to `level` %: green while charging.
+pub(super) fn battery_bar(p: &mut Painter, x: f32, y: f32, w: f32, level: u8, charging: bool) {
+    p.fill(&shapes::rounded_rect(x, y, w, 8.0, 4.0), Shader::SolidColor(color(0xFFFFFF, 0.10)));
+    let f = w * level.min(100) as f32 / 100.0;
+    if f > 1.0 {
+        let sh = if charging { Shader::SolidColor(color(GREEN, 1.0)) } else { shapes::accent(x, w, 1.0) };
+        p.fill(&shapes::rounded_rect(x, y, f.max(8.0), 8.0, 4.0), sh);
     }
-    let txt = format!("{level}%");
-    p.text(x + 24.0, y + 4.0, &txt, 11.5, true, color(TEXT, 1.0), 0.0);
-    x + 24.0 + p.measure(&txt, 11.5, true)
+}
+
+/// `a` → `b` by `t`.
+fn mix(a: u32, b: u32, t: f32) -> Color {
+    let (a, b) = (color(a, 1.0), color(b, 1.0));
+    let l = |x: f32, y: f32| x + (y - x) * t.clamp(0.0, 1.0);
+    Color::from_rgba(l(a.red(), b.red()), l(a.green(), b.green()), l(a.blue(), b.blue()), 1.0).unwrap()
 }
 
 impl Ui {
-    /// Glass on/off switch; (`x`, `y`) is the top-left of its 54×36 click area.
-    #[allow(clippy::too_many_arguments)]
+    /// On/off switch; (`x`, `y`) is the top-left of its 54×36 click area.
     pub(super) fn switch(&mut self, p: &mut Painter, x: f32, y: f32, on: bool, enabled: bool, action: Action) {
         if enabled {
             self.target(p, x - 4.0, y - 4.0, 54.0, 36.0, action);
         }
-        let mut g = self.glass(action, p);
+        let mut g = self.glass(action);
         g.on = self.active(action, on);
         // 38×22, against the right edge and centered on the click area's row
         let (x, y) = (x + 8.0, y + 3.0);
-        p.glass(x, y, 38.0, 22.0, 11.0, g);
+        let track = shapes::rounded_rect(x, y, 38.0, 22.0, 11.0);
+        p.fill(&track, Shader::SolidColor(color(0xFFFFFF, 0.12 + 0.04 * g.hover)));
+        if g.on > 0.0 {
+            p.fill(&track, shapes::accent(x, 38.0, g.on));
+        }
         let kx = x + 11.0 + g.on * 16.0;
-        p.fill(&shapes::circle(kx, y + 11.8, 8.5), Shader::SolidColor(color(0, 0.28)));
-        let knob = [(0.0, color(0xFFFFFF, 1.0)), (1.0, color(0xDCDFE6, 1.0))];
-        p.fill(&shapes::circle(kx, y + 11.0, 8.5), shapes::linear(0.0, y + 2.5, 0.0, y + 19.5, &knob));
+        p.fill(&shapes::circle(kx, y + 11.8, 8.5), Shader::SolidColor(color(0, 0.25)));
+        p.fill(&shapes::circle(kx, y + 11.0, 8.5), Shader::SolidColor(color(0xFFFFFF, 1.0)));
+    }
+
+    /// Segmented control: a dark track and one pill that slides to the selected segment (it sits
+    /// where the segments' animated "on" values put it). `draw(p, k, cx, cy, color)` fills segment k.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn segmented(
+        &mut self,
+        p: &mut Painter,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        items: &[(Action, bool)],
+        live: bool,
+        accent: bool,
+        mut draw: impl FnMut(&mut Painter, usize, f32, f32, Color),
+    ) {
+        let r = if h > 44.0 { 14.0 } else { 11.0 };
+        p.fill(&shapes::rounded_rect(x, y, w, h, r), Shader::SolidColor(color(0, 0.28)));
+        let sw = (w - 6.0) / items.len() as f32;
+        let seg = |k: f32| shapes::rounded_rect(x + 3.0 + k * sw, y + 3.0, sw, h - 6.0, r - 3.0);
+        let mut ons = vec![];
+        for (k, &(a, selected)) in items.iter().enumerate() {
+            if live {
+                self.target(p, x + 3.0 + k as f32 * sw, y, sw, h, a);
+            }
+            let hover = self.glass(a).hover;
+            if hover > 0.01 {
+                p.fill(&seg(k as f32), Shader::SolidColor(color(0xFFFFFF, 0.06 * hover)));
+            }
+            ons.push(self.active(a, selected));
+        }
+        let total: f32 = ons.iter().sum();
+        if total > 0.01 {
+            let k = ons.iter().enumerate().map(|(k, on)| k as f32 * on).sum::<f32>() / total;
+            let px = x + 3.0 + k * sw;
+            let a = total.min(1.0);
+            p.fill(&seg(k), if accent { shapes::accent(px, sw, a) } else { Shader::SolidColor(color(0xFFFFFF, 0.12 * a)) });
+        }
+        for (k, on) in ons.into_iter().enumerate() {
+            draw(p, k, x + 3.0 + (k as f32 + 0.5) * sw, y + h / 2.0, mix(TEXT2, 0xFFFFFF, on));
+        }
+    }
+
+    /// Card holding rows (a grouped list): the glass, hairlines between the rows and, for rows
+    /// that are a button, the click area and a hover pill. `rows` = (height, action).
+    pub(super) fn group(&mut self, p: &mut Painter, y: f32, rows: &[(f32, Option<Action>)]) {
+        let h: f32 = rows.iter().map(|r| r.0).sum();
+        p.glass(16.0, y, WIDTH - 32.0, h, 14.0, Glass::default());
+        let mut ry = y;
+        for (k, &(rh, a)) in rows.iter().enumerate() {
+            if let Some(a) = a {
+                self.target(p, 16.0, ry, WIDTH - 32.0, rh, a);
+                let hover = self.glass(a).hover;
+                if hover > 0.01 {
+                    p.fill(&shapes::rounded_rect(19.0, ry + 3.0, WIDTH - 38.0, rh - 6.0, 11.0), Shader::SolidColor(color(0xFFFFFF, 0.05 * hover)));
+                }
+            }
+            if k > 0 {
+                p.fill(&shapes::rounded_rect(30.0, ry - 0.5, WIDTH - 46.0, 1.0, 0.0), Shader::SolidColor(color(0xFFFFFF, 0.06)));
+            }
+            ry += rh;
+        }
     }
 
     /// Dims the page and slides a sheet `h` tall up from the bottom; returns its top.
@@ -110,9 +150,8 @@ impl Ui {
         }
         let top = HEIGHT - h * t;
         // taller than needed: the panel's rounded bottom clips it
-        p.fill(&shapes::rounded_rect(0.0, top, WIDTH, h + 40.0, 22.0), Shader::SolidColor(color(SHEET, 1.0)));
-        let rim = [(0.0, color(0xFFFFFF, 0.16)), (1.0, color(0xFFFFFF, 0.0))];
-        p.stroke(&shapes::rounded_rect(0.5, top + 0.5, WIDTH - 1.0, h + 40.0, 21.5), shapes::linear(0.0, top, 0.0, top + 40.0, &rim), 1.0);
+        p.fill(&shapes::rounded_rect(0.0, top, WIDTH, h + 40.0, RADIUS), Shader::SolidColor(color(SHEET, 1.0)));
+        p.stroke(&shapes::rounded_rect(0.5, top + 0.5, WIDTH - 1.0, h + 40.0, RADIUS - 0.5), Shader::SolidColor(color(0xFFFFFF, 0.09)), 1.0);
         p.fill(&shapes::rounded_rect(WIDTH / 2.0 - 18.0, top + 8.0, 36.0, 4.0, 2.0), Shader::SolidColor(color(0xFFFFFF, 0.18)));
         top
     }

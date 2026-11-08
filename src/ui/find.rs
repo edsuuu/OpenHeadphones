@@ -52,7 +52,7 @@ impl Ui {
             if state.connected {
                 self.target(p, x, yb, w, h, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, on);
             p.glass(x, yb, w, h, 20.0, g);
             let (cx, cy) = (x + w / 2.0, yb + 58.0);
@@ -84,7 +84,7 @@ impl Ui {
             if self.sheet_open {
                 self.target(p, x, y, w, 44.0, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, primary);
             p.glass(x, y, w, 44.0, 16.0, g);
             p.text(x + w / 2.0, y + 27.0, &t(label), 13.5, true, color(0xFFFFFF, 1.0), 0.5);

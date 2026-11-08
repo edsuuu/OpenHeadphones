@@ -9,7 +9,7 @@ use super::{Action, HEIGHT, Out, Ui, WIDTH};
 use crate::device::Command;
 use crate::i18n::{t, tf};
 use crate::profile;
-use crate::render::painter::Painter;
+use crate::render::painter::{Glass, Painter};
 use crate::render::{TEXT2, TEXT3, color, shapes};
 
 pub(super) struct EqEdit {
@@ -86,7 +86,8 @@ impl Ui {
         if let Some(s) = self.state_mut() {
             s.eq = Some(gains.clone());
         }
-        self.send(Command::Eq(gains.map(|g| eq.bands.iter().copied().zip(g).collect())))
+        let category = preset_index(eq, &self.eq.gains).and_then(|i| eq.presets[i].category).unwrap_or(230);
+        self.send(Command::Eq(gains.map(|g| (category, eq.bands.iter().copied().zip(g).collect()))))
     }
 
     pub(super) fn start_drag(&mut self, x: f32, y: f32) -> Out {
@@ -127,14 +128,14 @@ impl Ui {
             self.eq = EqEdit::new(eq.bands.len());
             self.sync_eq();
         }
-        section_title(p, 16.0, y + 36.0, &t("eq.section"));
-        self.switch(p, WIDTH - 62.0, y + 18.0, self.eq.on, true, Action::Eq);
+        section_title(p, 20.0, y + 8.0, &t("eq.section"));
+        self.switch(p, WIDTH - 62.0, y - 9.0, self.eq.on, true, Action::Eq);
         p.alpha = if self.eq.on { 1.0 } else { 0.35 };
         let selected = preset_index(eq, &self.eq.gains).unwrap_or(eq.presets.len());
-        let (mut x, mut y) = (16.0, y + 52.0);
+        let (mut x, mut y) = (16.0, y + 20.0);
         let names = eq.presets.iter().map(|preset| t(&format!("eq.{}", preset.name))).chain([t("eq.custom")]);
         for (i, name) in names.enumerate() {
-            let w = p.measure(&name, 12.5, i == selected) + 26.0;
+            let w = p.measure(&name, 11.0, i == selected) + 24.0;
             if x + w > WIDTH - 16.0 {
                 (x, y) = (16.0, y + 34.0);
             }
@@ -142,14 +143,14 @@ impl Ui {
             if self.eq.on {
                 self.target(p, x, y, w, 28.0, a);
             }
-            let mut g = self.glass(a, p);
+            let mut g = self.glass(a);
             g.on = self.active(a, i == selected && self.eq.on);
             p.glass(x, y, w, 28.0, 14.0, g);
             let c = color(if i == selected { 0xFFFFFF } else { TEXT2 }, 1.0);
-            p.text(x + w / 2.0, y + 18.5, &name, 12.5, i == selected, c, 0.5);
+            p.text(x + w / 2.0, y + 18.0, &name, 11.0, i == selected, c, 0.5);
             x += w + 6.0;
         }
-        self.draw_curve(p, eq, y + 40.0);
+        self.draw_curve(p, eq, y + 38.0);
         p.alpha = 1.0;
     }
 
@@ -159,8 +160,7 @@ impl Ui {
         if n < 2 || gh < 60.0 {
             return;
         }
-        p.fill(&shapes::rounded_rect(16.0, gy, WIDTH - 32.0, gh, 16.0), Shader::SolidColor(color(0, 0.24)));
-        p.stroke(&shapes::rounded_rect(16.5, gy + 0.5, WIDTH - 33.0, gh - 1.0, 15.5), Shader::SolidColor(color(0xFFFFFF, 0.06)), 1.0);
+        p.glass(16.0, gy, WIDTH - 32.0, gh, 14.0, Glass::default());
         if self.eq.on {
             self.target(p, 16.0, gy, WIDTH - 32.0, gh, Action::Curve);
         }
@@ -195,7 +195,7 @@ impl Ui {
             let r = if idle { 4.5 } else { 6.5 };
             p.fill(&shapes::circle(px, py, r), Shader::SolidColor(color(if idle { 0x16171D } else { 0xFFFFFF }, 1.0)));
             p.stroke(&shapes::circle(px, py, r), Shader::SolidColor(color(0xFFFFFF, 1.0)), 1.8);
-            p.text(px, gy + gh - 10.0, &band_label(eq.bands[i]), 9.5, false, color(TEXT3, 1.0), 0.5);
+            p.text(px, gy + gh - 10.0, &band_label(eq.bands[i]), 9.0, false, color(TEXT3, 1.0), 0.5);
         }
         if let Some(b) = self.eq.dragging.filter(|&b| b < n) {
             let (px, py) = pts[b];
