@@ -51,9 +51,14 @@ fn command(program: &str) -> Command {
 /// The latest release's version: /releases/latest redirects to /releases/tag/v<version>, or to
 /// /releases while there is none (`Ok(None)`). `Err`: GitHub could not be reached.
 pub fn latest() -> Result<Option<String>, ()> {
-    let out = command("curl").args(["-sI", &format!("https://github.com/{REPO}/releases/latest")]).output().map_err(|_| ())?;
-    let head = String::from_utf8_lossy(&out.stdout);
-    let location = head.lines().find(|l| l.to_ascii_lowercase().starts_with("location:")).ok_or(())?;
+    // -L: a renamed repository (jbl-headphones → OpenHeadphones) redirects once more before the tag
+    let out = command("curl").args(["-sIL", &format!("https://github.com/{REPO}/releases/latest")]).output().map_err(|_| ())?;
+    version_in(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// The version in the last redirect of these response headers.
+fn version_in(headers: &str) -> Result<Option<String>, ()> {
+    let location = headers.lines().filter(|l| l.to_ascii_lowercase().starts_with("location:")).last().ok_or(())?;
     let version = location.trim().rsplit_once("/tag/v").map(|(_, v)| v);
     Ok(version.filter(|v| v.starts_with(|c: char| c.is_ascii_digit())).map(str::to_string))
 }
@@ -173,5 +178,14 @@ mod tests {
         assert!(!newer(current()));
         assert!(!newer("0.0.1"));
         assert!(newer(&format!("{}.1", current()))); // 0.3.0.1 > 0.3.0
+    }
+
+    #[test]
+    fn follows_the_renamed_repository() {
+        let renamed = "HTTP/2 301\r\nlocation: https://github.com/edsuuu/OpenHeadphones/releases/latest\r\n\r\n\
+                       HTTP/2 302\r\nlocation: https://github.com/edsuuu/OpenHeadphones/releases/tag/v0.4.0\r\n\r\nHTTP/2 200\r\n";
+        assert_eq!(version_in(renamed), Ok(Some("0.4.0".into())));
+        assert_eq!(version_in("HTTP/2 302\r\nLocation: https://github.com/x/y/releases\r\n"), Ok(None));
+        assert_eq!(version_in(""), Err(()));
     }
 }

@@ -74,7 +74,8 @@ jobs:
       - name: .deb (the program in /usr/lib/jbl-headphones, which it finds through the /usr/bin link)
         run: |
           pkg=deb/usr/lib/jbl-headphones
-          mkdir -p "$pkg" deb/usr/bin deb/usr/share/applications deb/DEBIAN
+          mkdir -p "$pkg" deb/usr/bin deb/usr/share/applications deb/usr/share/icons/hicolor/scalable/apps deb/DEBIAN
+          cp docs/logo.svg deb/usr/share/icons/hicolor/scalable/apps/openheadphones.svg
           cp -r dist/. "$pkg/"
           ln -s ../lib/jbl-headphones/jbl-headphones deb/usr/bin/jbl-headphones
           cat > deb/usr/share/applications/jbl-headphones.desktop <<EOF
@@ -83,7 +84,7 @@ jobs:
           Name=OpenHeadphones
           Comment=Battery, noise cancelling, equalizer and settings of JBL headphones
           Exec=jbl-headphones
-          Icon=audio-headphones
+          Icon=openheadphones
           Categories=AudioVideo;Audio;Settings;
           EOF
           cat > deb/DEBIAN/control <<EOF

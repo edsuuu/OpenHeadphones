@@ -36,16 +36,17 @@ Linux)
     curl -fL --progress-bar -o "$tmp/app.tar.gz" "$base/jbl-headphones-linux-$arch.tar.gz"
     pkill -x jbl-headphones 2>/dev/null || true
     rm -rf "$dir"
-    mkdir -p "$dir" "$HOME/.local/bin" "$data/applications"
+    mkdir -p "$dir" "$HOME/.local/bin" "$data/applications" "$data/icons/hicolor/scalable/apps"
     tar -xzf "$tmp/app.tar.gz" -C "$dir"
     ln -sf "$dir/jbl-headphones" "$HOME/.local/bin/jbl-headphones"
+    curl -fsSL -o "$data/icons/hicolor/scalable/apps/openheadphones.svg" https://edsuuu.github.io/OpenHeadphones/logo.svg || true
     cat > "$data/applications/jbl-headphones.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=OpenHeadphones
 Comment=Battery, noise cancelling, equalizer and settings of JBL headphones
 Exec=$dir/jbl-headphones
-Icon=audio-headphones
+Icon=openheadphones
 Categories=AudioVideo;Audio;Settings;
 EOF
     echo "Installed: $dir (run: jbl-headphones, or OpenHeadphones in the app menu)"

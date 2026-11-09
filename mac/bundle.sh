@@ -15,6 +15,8 @@ for arch in arm64 x86_64; do
 done
 lipo -create "$build/jbl-headphones-arm64" "$build/jbl-headphones-x86_64" -output "$app/Contents/MacOS/jbl-headphones"
 cp -R "$root/devices" "$root/locales" "$app/Contents/Resources/"
+# the logo (docs/logo.svg) as the icon; mac/icon.svg is its source, AppIcon.icns made by iconutil
+cp "$root/mac/AppIcon.icns" "$app/Contents/Resources/"
 
 # Bluetooth: without the usage text, macOS kills a bundled app the moment it asks
 bt="Reads the battery and changes the settings of your JBL headphones."
@@ -27,6 +29,7 @@ cat > "$app/Contents/Info.plist" <<EOF
     <key>CFBundleDisplayName</key><string>OpenHeadphones</string>
     <key>CFBundleIdentifier</key><string>io.github.edsuuu.jbl-headphones</string>
     <key>CFBundleExecutable</key><string>jbl-headphones</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$version</string>
     <key>CFBundleVersion</key><string>$version</string>

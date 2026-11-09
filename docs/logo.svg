@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OpenHeadphones">
+  <rect width="64" height="64" rx="14" fill="#16171c"/>
+  <circle cx="32" cy="32" r="19" fill="none" stroke="#ff7448" stroke-width="5"/>
+  <path d="M13 35C19 35 21 25 27 25S35 39 41 39S47 30 51 30" fill="none" stroke="#e7e8ec" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="27" cy="25" r="3.2" fill="#e7e8ec"/>
+  <circle cx="41" cy="39" r="3.2" fill="#e7e8ec"/>
+</svg>

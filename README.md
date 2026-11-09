@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" width="96" alt="OpenHeadphones logo"></p>
+
 # OpenHeadphones
 
 **Open source app for JBL headphones on Windows, macOS and Linux.** Not an official JBL app.
