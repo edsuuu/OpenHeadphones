@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const REPO: &str = "edsuuu/jbl-headphones";
+const REPO: &str = "edsuuu/OpenHeadphones";
 #[cfg(windows)]
 const ASSET: &str = "jbl-headphones-windows-x64.zip";
 #[cfg(all(not(windows), target_arch = "aarch64"))]

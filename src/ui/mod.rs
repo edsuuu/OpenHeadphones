@@ -369,6 +369,11 @@ impl Ui {
         }
     }
 
+    /// For `--demo`: how far the settings can still scroll down.
+    pub fn scroll_left(&self) -> f32 {
+        self.scroll_max - self.scroll
+    }
+
     /// Mouse wheel / touchpad, in logical px (positive = content goes up).
     pub fn wheel(&mut self, dy: f32) {
         if self.detail && self.tab == Tab::Settings && !self.sheet_open {

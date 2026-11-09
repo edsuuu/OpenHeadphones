@@ -1,12 +1,12 @@
 #!/bin/sh
-# Installs (or updates) JBL Headphones from the latest GitHub release:
-#   curl -fsSL https://edsuuu.github.io/jbl-headphones/install.sh | sh
+# Installs (or updates) OpenHeadphones from the latest GitHub release:
+#   curl -fsSL https://edsuuu.github.io/OpenHeadphones/install.sh | sh
 # macOS: the .app in /Applications (or ~/Applications). curl leaves no quarantine flag, so it opens
 # without the "unidentified developer" dance.
 # Linux: ~/.local/share/jbl-headphones, `jbl-headphones` in ~/.local/bin and a menu entry. The app
 # can then update itself there.
 set -e
-base=https://github.com/edsuuu/jbl-headphones/releases/latest/download
+base=https://github.com/edsuuu/OpenHeadphones/releases/latest/download
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -17,10 +17,13 @@ Darwin)
     [ -w "$dest" ] || dest="$HOME/Applications"
     mkdir -p "$dest"
     pkill -x jbl-headphones 2>/dev/null || true
-    rm -rf "$dest/JBL Headphones.app"
-    ditto -x -k "$tmp/app.zip" "$dest"
-    echo "Installed: $dest/JBL Headphones.app"
-    open "$dest/JBL Headphones.app"
+    # the .app in the zip: OpenHeadphones.app (JBL Headphones.app up to 0.3.0)
+    ditto -x -k "$tmp/app.zip" "$tmp/x"
+    app=$(ls -d "$tmp"/x/*.app | head -n 1)
+    rm -rf "$dest/OpenHeadphones.app" "$dest/JBL Headphones.app"
+    mv "$app" "$dest/"
+    echo "Installed: $dest/${app##*/}"
+    open "$dest/${app##*/}"
     ;;
 Linux)
     case "$(uname -m)" in
@@ -39,17 +42,17 @@ Linux)
     cat > "$data/applications/jbl-headphones.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=JBL Headphones
+Name=OpenHeadphones
 Comment=Battery, noise cancelling, equalizer and settings of JBL headphones
 Exec=$dir/jbl-headphones
 Icon=audio-headphones
 Categories=AudioVideo;Audio;Settings;
 EOF
-    echo "Installed: $dir (run: jbl-headphones, or JBL Headphones in the app menu)"
+    echo "Installed: $dir (run: jbl-headphones, or OpenHeadphones in the app menu)"
     case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "Add ~/.local/bin to your PATH to run it by name." ;; esac
     ;;
 *)
-    echo "On Windows, download https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-windows-x64.zip" >&2
+    echo "On Windows, download https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-windows-x64.zip" >&2
     exit 1
     ;;
 esac

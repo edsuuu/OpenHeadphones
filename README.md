@@ -1,8 +1,10 @@
-# JBL Headphones for Windows, macOS and Linux
+# OpenHeadphones
+
+**Open source app for JBL headphones on Windows, macOS and Linux.** Not an official JBL app.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-42d99b)](LICENSE)
-[![Latest release](https://img.shields.io/github/v/release/edsuuu/jbl-headphones?color=ff9244)](https://github.com/edsuuu/jbl-headphones/releases/latest)
-[![Build](https://github.com/edsuuu/jbl-headphones/actions/workflows/build.yml/badge.svg)](https://github.com/edsuuu/jbl-headphones/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/edsuuu/OpenHeadphones?color=ff9244)](https://github.com/edsuuu/OpenHeadphones/releases/latest)
+[![Build](https://github.com/edsuuu/OpenHeadphones/actions/workflows/build.yml/badge.svg)](https://github.com/edsuuu/OpenHeadphones/actions/workflows/build.yml)
 
 **Control your JBL earbuds and headphones from the computer:** battery, noise cancelling (ANC),
 ambient sound, equalizer with JBL's own presets, touch gestures, find my buds and the device
@@ -13,8 +15,8 @@ equalizador com os presets da JBL, gestos de toque, localizar o fone e os ajuste
 na bandeja do Windows e do Linux ou na barra de menus do Mac, sem o app do celular.
 
 <p align="center">
-  <img src="docs/demo.gif" width="360" alt="JBL Headphones app with a JBL Tune Flex 2: the panel opens from the menu bar, switches to Ambient mode and goes through the tabs">
-  <br><sub>JBL Tune Flex 2 · <a href="https://edsuuu.github.io/jbl-headphones/">site and video / site e vídeo</a></sub>
+  <img src="docs/demo.gif" width="320" alt="OpenHeadphones with a JBL Tune Flex 2: the panel opens from the menu bar, Ambient mode, the Bass preset, a gesture's actions, the find tab and every setting">
+  <br><sub>JBL Tune Flex 2 · <a href="https://edsuuu.github.io/OpenHeadphones/">site and video / site e vídeo</a></sub>
 </p>
 
 > [!IMPORTANT]
@@ -32,21 +34,21 @@ na bandeja do Windows e do Linux ou na barra de menus do Mac, sem o app do celul
 
 ## Download / Baixar
 
-From the [latest release](https://github.com/edsuuu/jbl-headphones/releases/latest)
+From the [latest release](https://github.com/edsuuu/OpenHeadphones/releases/latest)
 (direct links below) or with one command on macOS and Linux:
 
 ```bash
-curl -fsSL https://edsuuu.github.io/jbl-headphones/install.sh | sh
+curl -fsSL https://edsuuu.github.io/OpenHeadphones/install.sh | sh
 ```
 
 | System | File |
 | --- | --- |
-| **macOS 15+** (Apple Silicon and Intel) | [jbl-headphones-mac.zip](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-mac.zip) |
-| **Windows 10/11** (x64) | [jbl-headphones-windows-x64.zip](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-windows-x64.zip) |
-| **Linux .deb** (Ubuntu, Debian, Mint, Pop!\_OS) | [amd64](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-amd64.deb) · [arm64](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-arm64.deb) |
-| **Linux .tar.gz** (any distro with BlueZ) | [x64](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-x64.tar.gz) · [arm64](https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-arm64.tar.gz) |
+| **macOS 15+** (Apple Silicon and Intel) | [jbl-headphones-mac.zip](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-mac.zip) |
+| **Windows 10/11** (x64) | [jbl-headphones-windows-x64.zip](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-windows-x64.zip) |
+| **Linux .deb** (Ubuntu, Debian, Mint, Pop!\_OS) | [amd64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-amd64.deb) · [arm64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.deb) |
+| **Linux .tar.gz** (any distro with BlueZ) | [x64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-x64.tar.gz) · [arm64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.tar.gz) |
 
-- **macOS:** unzip and drag *JBL Headphones.app* to Applications. The app is not notarized by
+- **macOS:** unzip and drag *OpenHeadphones.app* to Applications. The app is not notarized by
   Apple: the first time, open it, then go to **System Settings → Privacy & Security → Open Anyway**.
   (The `curl` install above skips this step.)
 - **Windows:** unzip anywhere and run `jbl-headphones.exe`.

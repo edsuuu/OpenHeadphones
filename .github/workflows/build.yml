@@ -80,7 +80,7 @@ jobs:
           cat > deb/usr/share/applications/jbl-headphones.desktop <<EOF
           [Desktop Entry]
           Type=Application
-          Name=JBL Headphones
+          Name=OpenHeadphones
           Comment=Battery, noise cancelling, equalizer and settings of JBL headphones
           Exec=jbl-headphones
           Icon=audio-headphones
@@ -94,8 +94,8 @@ jobs:
           Depends: libdbus-1-3, bluez
           Section: sound
           Priority: optional
-          Homepage: https://edsuuu.github.io/jbl-headphones/
-          Description: Tray app for JBL headphones
+          Homepage: https://edsuuu.github.io/OpenHeadphones/
+          Description: OpenHeadphones, a tray app for JBL headphones
            Battery, noise cancelling, ambient sound, equalizer, touch gestures and settings of
            JBL headphones. Independent project, not affiliated with JBL or Harman.
           EOF
@@ -118,11 +118,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: JBL Headphones.app (universal, ad-hoc signed) zipped
+      - name: OpenHeadphones.app (universal, ad-hoc signed) zipped
         run: bash mac/bundle.sh "${{ needs.version.outputs.version }}"
       - name: The bundle reports its version and passes its self-test on its own data
         run: |
-          app="dist/JBL Headphones.app/Contents/MacOS/jbl-headphones"
+          app="dist/OpenHeadphones.app/Contents/MacOS/jbl-headphones"
           test "$("$app" --version)" = "${{ needs.version.outputs.version }}"
           "$app" --selftest
       - uses: actions/upload-artifact@v4

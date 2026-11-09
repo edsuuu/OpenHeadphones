@@ -4,7 +4,7 @@
 import Foundation
 
 enum Update {
-    static let repo = "https://github.com/edsuuu/jbl-headphones"
+    static let repo = "https://github.com/edsuuu/OpenHeadphones"
 
     /// Updating, as the App sheet shows it.
     enum Status: Equatable {

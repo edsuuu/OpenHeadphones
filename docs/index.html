@@ -3,294 +3,476 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JBL Headphones for PC: open source JBL app for Windows, macOS and Linux</title>
-<meta name="description" content="Free, open source desktop app for JBL headphones: battery, noise cancelling (ANC), ambient sound, equalizer, gestures and settings on Windows, macOS and Linux. App grátis e de código aberto para fones JBL no PC.">
-<link rel="canonical" href="https://edsuuu.github.io/jbl-headphones/">
-<meta name="theme-color" content="#0e0f13">
-<meta name="color-scheme" content="dark">
+<title>OpenHeadphones: open source app for JBL headphones on Windows, macOS and Linux</title>
+<meta name="description" content="OpenHeadphones is a free, open source desktop app for JBL headphones: battery, noise cancelling (ANC), ambient sound, equalizer, gestures and settings on Windows, macOS and Linux. App grátis e de código aberto para fones JBL no PC.">
+<link rel="canonical" href="https://edsuuu.github.io/OpenHeadphones/">
+<meta name="theme-color" content="#ff7448">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="JBL Headphones">
-<meta property="og:title" content="JBL Headphones: your JBL headphones on Windows, macOS and Linux">
-<meta property="og:description" content="Battery, ANC, ambient sound, equalizer and settings of JBL headphones on the computer. Free and open source (MIT).">
-<meta property="og:url" content="https://edsuuu.github.io/jbl-headphones/">
-<meta property="og:image" content="https://edsuuu.github.io/jbl-headphones/og.png">
+<meta property="og:site_name" content="OpenHeadphones">
+<meta property="og:title" content="OpenHeadphones: your JBL headphones on Windows, macOS and Linux">
+<meta property="og:description" content="Battery, ANC, ambient sound, equalizer and settings of JBL headphones on the computer. Free and open source (MIT). Not an official JBL app.">
+<meta property="og:url" content="https://edsuuu.github.io/OpenHeadphones/">
+<meta property="og:image" content="https://edsuuu.github.io/OpenHeadphones/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap">
+<script>
+  // before the first paint: Portuguese for a Portuguese browser (or the last choice), English otherwise
+  (function () {
+    let lang = null;
+    try { lang = localStorage.getItem("lang"); } catch (e) {}
+    lang = lang || (/^pt\b/i.test(navigator.language) ? "pt" : "en");
+    document.documentElement.dataset.lang = lang;
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+  })();
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "JBL Headphones",
-  "description": "Open source desktop app for JBL headphones: battery, noise cancelling, ambient sound, equalizer, touch gestures and settings.",
+  "name": "OpenHeadphones",
+  "alternateName": "OpenHeadphones for JBL headphones",
+  "description": "Open source desktop app for JBL headphones: battery, noise cancelling, ambient sound, equalizer, touch gestures and settings. Not an official JBL app.",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Windows 10, Windows 11, macOS 15, Linux",
   "softwareVersion": "0.3.0",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
-  "codeRepository": "https://github.com/edsuuu/jbl-headphones",
-  "url": "https://edsuuu.github.io/jbl-headphones/",
-  "downloadUrl": "https://github.com/edsuuu/jbl-headphones/releases/latest",
-  "screenshot": "https://edsuuu.github.io/jbl-headphones/poster.png",
+  "codeRepository": "https://github.com/edsuuu/OpenHeadphones",
+  "url": "https://edsuuu.github.io/OpenHeadphones/",
+  "downloadUrl": "https://github.com/edsuuu/OpenHeadphones/releases/latest",
+  "screenshot": "https://edsuuu.github.io/OpenHeadphones/poster.png",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 </script>
 <style>
+  /* Amp: the orange of the hero (near the app's accent). Foam: ear tip grey. Ink: the app's panel. */
   :root {
-    --bg: #0e0f13; --panel: #15161b; --sheet: #1e1f26; --line: rgba(255,255,255,.08);
-    --text: #f2f3f7; --text2: #9aa0ae; --text3: #5e6472;
-    --a1: #ff9244; --a2: #ff4d6d; --green: #42d99b;
-    --accent: linear-gradient(90deg, var(--a1), var(--a2));
+    --amp: #ff7448; --foam: #e7e8ec; --ink: #16171c; --steel: #5b606c; --rule: rgba(22,23,28,.14);
+    --ok: #1f9a66;
+    --wrap: 1120px; --gutter: clamp(16px, 4vw, 40px);
+    /* the first screen fits a laptop: the video and the curve take their share of the height */
+    --eq-h: clamp(84px, 14vh, 190px);
+    --video-h: clamp(360px, 58vh, 660px);
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--text); }
-  body {
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, Roboto, sans-serif;
-    min-height: 100vh; display: flex; flex-direction: column;
-    background:
-      radial-gradient(60rem 40rem at 20% -10%, rgba(255,146,68,.10), transparent 60%),
-      radial-gradient(50rem 40rem at 110% 30%, rgba(255,77,109,.08), transparent 60%),
-      var(--bg);
-  }
-  a { color: inherit; }
-  a:focus-visible, button:focus-visible { outline: 2px solid var(--a1); outline-offset: 2px; }
-  .bar, main, footer { width: 100%; max-width: 1040px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+  /* one language at a time: English unless the page says Portuguese */
+  :root:not([data-lang="pt"]) [lang="pt-BR"], :root[data-lang="pt"] [lang="en"] { display: none !important; }
 
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; }
-  .brand { font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .bar nav { display: flex; align-items: center; gap: 10px; }
-  .gh {
-    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
-    background: rgba(255,255,255,.07); text-decoration: none; font-size: 13px;
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--foam); color: var(--ink);
+    font-family: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 18px; line-height: 1.5; font-variation-settings: "wdth" 100;
   }
-  .gh:hover { background: rgba(255,255,255,.14); }
-  .gh svg { width: 16px; height: 16px; fill: currentColor; }
-  .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.07); }
+  a { color: inherit; text-underline-offset: .18em; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gutter); }
+  .gh-icon { width: 1.1em; height: 1.1em; fill: currentColor; vertical-align: -.18em; margin-right: .4em; }
+
+  /* ---------- hero: orange down to the equalizer curve ---------- */
+  .hero { background: var(--amp); }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+  .brand { font-weight: 800; font-size: 20px; text-decoration: none; font-variation-settings: "wdth" 125; letter-spacing: -.01em; }
+  .top nav { display: flex; align-items: center; gap: 18px; }
+  .top nav a { font-size: 16px; font-weight: 600; text-decoration: none; }
+  .top nav a:hover { text-decoration: underline; }
+  .lang { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 999px; padding: 2px; }
   .lang button {
-    font: inherit; font-size: 12px; font-weight: 600; color: var(--text2); background: none; border: 0;
+    font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); background: none; border: 0;
     padding: 3px 10px; border-radius: 999px; cursor: pointer;
   }
-  .lang button[aria-pressed="true"] { background: rgba(255,255,255,.14); color: var(--text); }
+  .lang button[aria-pressed="true"] { background: var(--ink); color: var(--amp); }
 
-  main {
-    flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 56px; align-items: center;
-    padding-top: 20px; padding-bottom: 20px;
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(32px, 6vw, 88px);
+    align-items: center; padding-top: clamp(4px, 2vh, 40px); padding-bottom: clamp(32px, 6vh, 72px);
   }
-  figure { margin: 0; }
+  .unofficial {
+    display: inline-block; margin: 0 0 18px; padding: 5px 13px; border: 1.5px solid var(--ink); border-radius: 999px;
+    font-size: 14px; font-weight: 650; letter-spacing: .01em;
+  }
+  h1 {
+    margin: 0 0 22px; font-weight: 820; font-size: clamp(36px, min(5vw, 8vh), 80px); line-height: .92;
+    letter-spacing: -.015em; font-variation-settings: "wdth" 125; max-width: 12em;
+  }
+  .lead { margin: 0 0 28px; max-width: 32em; font-size: clamp(17px, 2.4vh, 20px); line-height: 1.5; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
+  .button {
+    display: inline-block; background: var(--ink); color: var(--foam); text-decoration: none;
+    font-weight: 650; font-size: 18px; padding: 15px 26px; border-radius: 999px;
+    font-variation-settings: "wdth" 110;
+  }
+  .button:hover { background: #000; }
+  .actions a:not(.button) { font-weight: 600; }
+  /* the video is the panel itself: its own corners (40 of 720 × 1300 px) round the frame */
   .device {
-    height: min(64vh, 540px); aspect-ratio: 720 / 1300; overflow: hidden;
-    border-radius: 5.56% / 3.08%; /* the panel's own corners: 40 px of 720 × 1300 */
-    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    margin: 0; height: var(--video-h); aspect-ratio: 720 / 1300; overflow: hidden;
+    border-radius: 5.56% / 3.08%; background: var(--ink);
+    box-shadow: 0 28px 60px rgba(90, 24, 0, .35);
   }
   .device video { display: block; width: 100%; height: 100%; }
-  figcaption {
-    margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
-    color: var(--text2); font-size: 13px;
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
-  figcaption strong { color: var(--text); font-weight: 600; }
 
-  .eyebrow { color: var(--text2); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 12px; }
-  .eyebrow b { color: var(--green); font-weight: 600; }
-  h1 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.06; letter-spacing: -.02em; margin: 0 0 14px; font-weight: 700; }
-  h1 span { background: var(--accent); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lead { color: var(--text2); font-size: 16px; margin: 0 0 24px; max-width: 36em; }
+  /* the boundary: orange above the curve, foam below */
+  /* the orange strip on top hides the seam where the curve's fill meets the hero */
+  .eq { position: relative; height: var(--eq-h); background: linear-gradient(var(--amp) 0 3px, var(--foam) 3px); }
+  .eq svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .eq .fill { fill: var(--amp); }
+  .eq .line { fill: none; stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .eq .knob {
+    position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+    background: var(--foam); border: 2px solid var(--ink);
+  }
+  /* full width, like the curve: column k is centered under band k */
+  .bands {
+    display: grid; grid-template-columns: repeat(10, 1fr); text-align: center; margin: 8px 0 0;
+    padding: 0; list-style: none; color: var(--steel); font-size: 13px; font-variant-numeric: tabular-nums;
+    font-variation-settings: "wdth" 75; letter-spacing: .02em;
+  }
+  .presets {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 4px; padding-top: 14px; padding-bottom: 8px;
+  }
+  .presets p { margin: 0 14px 0 0; color: var(--steel); font-size: 16px; }
+  .presets button {
+    font: inherit; font-size: 16px; font-weight: 600; color: var(--ink); background: none; cursor: pointer;
+    border: 1.5px solid transparent; border-radius: 999px; padding: 5px 13px;
+  }
+  .presets button:hover { border-color: var(--rule); }
+  .presets button[aria-pressed="true"] { background: var(--ink); color: var(--foam); }
 
-  .downloads { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 10px; align-items: stretch; }
-  .dl {
-    display: flex; flex-direction: column; gap: 1px; padding: 12px 14px; border-radius: 14px;
-    background: var(--sheet); border: 1px solid var(--line); text-decoration: none;
-    transition: border-color .15s, transform .15s;
+  /* ---------- below ---------- */
+  section { padding-top: clamp(56px, 8vw, 104px); }
+  h2 {
+    margin: 0 0 28px; font-size: clamp(30px, 4vw, 44px); line-height: 1; font-weight: 780;
+    letter-spacing: -.01em; font-variation-settings: "wdth" 125;
   }
-  a.dl:hover { border-color: rgba(255,255,255,.22); transform: translateY(-1px); }
-  .dl b { font-weight: 600; }
-  .dl small { color: var(--text2); font-size: 12px; }
-  .dl .links { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
-  .dl .links a {
-    font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.07);
-    text-decoration: none; text-align: center; white-space: nowrap;
-  }
-  .dl .links a:hover { background: rgba(255,255,255,.14); }
-  .dl.mine { background: var(--accent); border-color: transparent; color: #fff; }
-  .dl.mine small { color: rgba(255,255,255,.88); }
-  .dl.mine .links a { background: rgba(0,0,0,.18); }
-  .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .9; display: none; }
-  .mine .tag { display: block; }
+  .screens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; align-items: start; }
+  .screens figure { margin: 0; }
+  .screens img { display: block; width: 100%; height: auto; filter: drop-shadow(0 18px 30px rgba(22,23,28,.18)); }
+  .screens figcaption { margin-top: 16px; font-size: 16px; line-height: 1.45; max-width: 22em; }
+  .screens figcaption b { display: block; font-size: 20px; font-weight: 750; font-variation-settings: "wdth" 115; margin-bottom: 2px; }
 
-  .curl { margin-top: 18px; }
-  .curl p { margin: 0 0 6px; color: var(--text2); font-size: 13px; }
-  .cmd {
-    display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px;
-    background: #000; border: 1px solid var(--line);
+  .downloads { border-top: 1.5px solid var(--ink); }
+  .row {
+    display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: 8px 32px; align-items: center;
+    padding: 22px 18px; border-bottom: 1px solid var(--rule);
   }
-  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  .cmd code::before { content: "$ "; color: var(--text3); }
+  .row .os { font-size: 30px; font-weight: 780; line-height: 1.1; font-variation-settings: "wdth" 125; }
+  .row .req { color: var(--steel); font-size: 16px; }
+  .row .files { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .row .files a {
+    font-size: 16px; font-weight: 600; text-decoration: none; padding: 8px 16px; border-radius: 999px;
+    border: 1.5px solid var(--ink);
+  }
+  .row .files a:hover { background: var(--ink); color: var(--foam); }
+  .here { display: none; font-size: 14px; font-weight: 600; color: var(--amp); }
+  .row.mine { background: var(--ink); color: var(--foam); border-radius: 18px; border-bottom-color: transparent; }
+  .row.mine .req { color: #a9aebb; }
+  .row.mine .here { display: block; }
+  .row.mine .files a { border-color: var(--foam); }
+  .row.mine .files a:hover { background: var(--foam); color: var(--ink); }
+
+  .terminal { margin-top: 36px; max-width: 760px; }
+  .terminal p { margin: 0 0 10px; font-size: 16px; }
+  .cmd { display: flex; align-items: center; gap: 12px; background: var(--ink); color: var(--foam); border-radius: 14px; padding: 12px 12px 12px 20px; }
+  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .cmd code::before { content: "$ "; color: #8a8f9c; }
   .cmd button {
-    font: inherit; font-size: 12px; color: var(--text); background: rgba(255,255,255,.08);
-    border: 0; border-radius: 8px; padding: 5px 11px; cursor: pointer; flex: none;
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); background: var(--foam); border: 0;
+    border-radius: 999px; padding: 7px 16px; cursor: pointer; flex: none;
   }
-  .cmd button:hover { background: rgba(255,255,255,.15); }
-  .note { color: var(--text3); font-size: 12px; margin: 10px 0 0; }
-  details { margin-top: 14px; color: var(--text2); font-size: 13px; }
-  summary { cursor: pointer; color: var(--text); }
-  details p { margin: 8px 0 0; }
+  .cmd button:focus-visible { outline-color: var(--foam); }
+  .notes { margin: 24px 0 0; max-width: 40em; color: var(--steel); font-size: 16px; }
+  .notes p { margin: 0 0 8px; }
+
+  .models-intro { margin: -12px 0 28px; max-width: 38em; color: var(--steel); font-size: 16px; }
+  .models { columns: 4 12em; column-gap: 32px; margin: 0; padding: 0; list-style: none; font-size: 16px; line-height: 1.9; }
+  .models li { break-inside: avoid; }
+  .models .tested { font-weight: 700; }
+  .models .tested::after {
+    content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+    margin-left: 8px; vertical-align: .1em;
+  }
 
   footer {
-    padding-top: 14px; padding-bottom: 18px; color: var(--text3); font-size: 12px;
-    border-top: 1px solid var(--line);
+    margin-top: clamp(64px, 9vw, 120px); padding-top: 24px; padding-bottom: 40px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px 40px; flex-wrap: wrap;
+    color: var(--steel); font-size: 14px;
   }
-  footer p { margin: 0; }
+  footer p { margin: 0; max-width: 46em; }
 
   @media (max-width: 860px) {
-    main { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-    figure { order: 2; }
-    .device { height: auto; width: min(72vw, 280px); margin: 0 auto; }
-    .downloads { grid-template-columns: 1fr; }
-    .bar, main, footer { padding-left: 16px; padding-right: 16px; }
-    .gh span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .stage { grid-template-columns: minmax(0, 1fr); }
+    h1 { font-size: clamp(38px, 10vw, 72px); }
+    .device { height: auto; width: min(72vw, 280px); }
+    .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
+    .row { grid-template-columns: minmax(0, 1fr); padding: 20px 16px; }
+    .row .files { justify-content: flex-start; }
+    .bands { font-size: 11px; }
+    .top nav .gh-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .top nav .gh-icon { margin-right: 0; width: 1.3em; height: 1.3em; }
   }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<header class="bar">
-  <span class="brand"><span aria-hidden="true">🎧</span> JBL Headphones</span>
-  <nav>
-    <a class="gh" href="https://github.com/edsuuu/jbl-headphones">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
-      <span data-i18n="source">Source code</span>
-    </a>
-    <span class="lang" role="group" aria-label="Language / Idioma">
-      <button type="button" data-lang="en" aria-pressed="true">EN</button>
-      <button type="button" data-lang="pt" aria-pressed="false">PT</button>
-    </span>
-  </nav>
-</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="github" viewBox="0 0 16 16"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></symbol>
+</svg>
 
-<main>
-  <figure>
-    <div class="device">
-      <video id="demo" src="demo.mp4" poster="poster.png" autoplay muted loop playsinline preload="auto"
-        aria-label="The JBL Headphones panel with a JBL Tune Flex 2 connected: it switches to Ambient mode and goes through the Sound, Touch and Settings tabs"></video>
+<header class="hero">
+  <div class="wrap top">
+    <a class="brand" href="./">OpenHeadphones</a>
+    <nav>
+      <a href="https://github.com/edsuuu/OpenHeadphones"><svg class="gh-icon" aria-hidden="true"><use href="#github"/></svg><span class="gh-text"><span lang="en">Code on GitHub</span><span lang="pt-BR">Código no GitHub</span></span></a>
+      <span class="lang" role="group" aria-label="Language / Idioma">
+        <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-set-lang="pt" aria-pressed="false">PT</button>
+      </span>
+    </nav>
+  </div>
+  <div class="wrap stage">
+    <div>
+      <p class="unofficial"><span lang="en">Unofficial app · open source</span><span lang="pt-BR">App não oficial · código aberto</span></p>
+      <h1><span lang="en">Your JBL headphones, on the computer.</span><span lang="pt-BR">Seus fones JBL, no computador.</span></h1>
+      <p class="lead">
+        <span lang="en">The battery of each earbud and the case, noise cancelling, ambient sound, the equalizer,
+          touch gestures and the headphones' settings, in the Mac menu bar or the Windows and Linux tray.
+          Free, open source, and not made by JBL.</span>
+        <span lang="pt-BR">A bateria de cada fone e do estojo, o cancelamento de ruído, o modo ambiente, o equalizador,
+          os toques e os ajustes do fone, na barra de menus do Mac ou na bandeja do Windows e do Linux.
+          Grátis, de código aberto e não feito pela JBL.</span>
+      </p>
+      <div class="actions">
+        <a class="button" id="get" href="#download"><span lang="en">Download</span><span lang="pt-BR">Baixar</span></a>
+        <a href="#download" id="others"><span lang="en">All systems</span><span lang="pt-BR">Ver todos os sistemas</span></a>
+      </div>
     </div>
-    <figcaption><span class="dot" aria-hidden="true"></span><span data-i18n="caption">In the video:</span> <strong>JBL Tune Flex 2</strong></figcaption>
-  </figure>
+    <figure class="device">
+      <video id="demo" src="demo.mp4" poster="poster.png" autoplay muted loop playsinline preload="auto"
+        aria-label="OpenHeadphones with a JBL Tune Flex 2: Ambient mode, the Bass preset, a gesture's actions, the find tab and every setting"></video>
+    </figure>
+  </div>
+  <div class="eq" id="eq" aria-hidden="true">
+    <svg viewBox="0 0 1000 200" preserveAspectRatio="none"><path class="fill"/><path class="line"/></svg>
+  </div>
+</header>
+<ol class="bands" aria-hidden="true">
+  <li>32</li><li>64</li><li>125</li><li>250</li><li>500</li><li>1k</li><li>2k</li><li>4k</li><li>8k</li><li>16k</li>
+</ol>
 
-  <section aria-labelledby="title">
-    <p class="eyebrow" data-i18n="eyebrow">Free · <b>Open source (MIT)</b> · Windows · macOS · Linux</p>
-    <h1 id="title" data-i18n="h1">Your JBL headphones <span>on the computer</span></h1>
-    <p class="lead" data-i18n="lead">Battery, noise cancelling, ambient sound, JBL's equalizer presets, touch gestures
-      and the headphones' settings, from the Windows and Linux tray or the Mac menu bar. No phone app needed.</p>
+<div class="wrap">
+  <div class="presets" role="group" aria-label="Equalizer presets">
+    <p><span lang="en">JBL's presets, as in the phone app:</span><span lang="pt-BR">Os presets da JBL, como no app do celular:</span></p>
+  </div>
 
+  <section aria-labelledby="panel">
+    <h2 id="panel"><span lang="en">In the panel</span><span lang="pt-BR">No painel</span></h2>
+    <div class="screens">
+      <figure><img src="screens/list.png" width="720" height="520" loading="lazy" alt="List with a JBL Tune Flex 2: left, right and case battery, and the noise modes">
+        <figcaption><b><span lang="en">List</span><span lang="pt-BR">Lista</span></b>
+          <span lang="en">The connected headphones, with the battery and the noise mode at hand.</span>
+          <span lang="pt-BR">Os fones conectados, com a bateria e o modo de ruído à mão.</span></figcaption></figure>
+      <figure><img src="screens/sound.png" width="720" height="1300" loading="lazy" alt="Sound tab: noise cancelling, its level and the equalizer with the presets">
+        <figcaption><b><span lang="en">Sound</span><span lang="pt-BR">Som</span></b>
+          <span lang="en">Noise cancelling, ambient sound, their level and the equalizer.</span>
+          <span lang="pt-BR">Cancelamento de ruído, ambiente, intensidade e equalizador.</span></figcaption></figure>
+      <figure><img src="screens/gestures.png" width="720" height="1300" loading="lazy" alt="Touch tab: what each touch does on the left and right earbud">
+        <figcaption><b><span lang="en">Touch</span><span lang="pt-BR">Toques</span></b>
+          <span lang="en">What one, two, three taps and holding do on each earbud.</span>
+          <span lang="pt-BR">O que um, dois, três toques e segurar fazem em cada fone.</span></figcaption></figure>
+      <figure><img src="screens/settings.png" width="720" height="1300" loading="lazy" alt="Settings tab: Smart Audio &amp; Video, spatial sound, balance and volume limit">
+        <figcaption><b><span lang="en">Settings</span><span lang="pt-BR">Ajustes</span></b>
+          <span lang="en">Only the ones your model has: spatial sound, balance, auto power off and more.</span>
+          <span lang="pt-BR">Só os que o seu modelo tem: som espacial, equilíbrio, desligar sozinho e mais.</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section id="download" aria-labelledby="download-title">
+    <h2 id="download-title"><span lang="en">Download</span><span lang="pt-BR">Baixar</span></h2>
     <div class="downloads">
-      <a class="dl" data-os="mac" href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-mac.zip">
-        <span class="tag" data-i18n="mine">For this computer</span>
-        <b>macOS</b><small data-i18n="mac">macOS 15+, Apple Silicon and Intel</small>
-      </a>
-      <a class="dl" data-os="windows" href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-windows-x64.zip">
-        <span class="tag" data-i18n="mine">For this computer</span>
-        <b>Windows</b><small data-i18n="windows">Windows 10 and 11, x64</small>
-      </a>
-      <div class="dl" data-os="linux">
-        <span class="tag" data-i18n="mine">For this computer</span>
-        <b>Linux</b><small>Ubuntu, Debian, Mint, Pop!_OS</small>
-        <span class="links">
-          <a href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-amd64.deb">.deb amd64</a>
-          <a href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-arm64.deb">.deb arm64</a>
-          <a href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-x64.tar.gz">.tar.gz x64</a>
-          <a href="https://github.com/edsuuu/jbl-headphones/releases/latest/download/jbl-headphones-linux-arm64.tar.gz">.tar.gz arm64</a>
+      <div class="row" data-os="mac">
+        <div><span class="here"><span lang="en">This computer</span><span lang="pt-BR">Este computador</span></span><span class="os">macOS</span></div>
+        <span class="req"><span lang="en">macOS 15 or newer, Apple Silicon and Intel</span><span lang="pt-BR">macOS 15 ou mais novo, Apple Silicon e Intel</span></span>
+        <span class="files"><a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-mac.zip"><span lang="en">Download .zip</span><span lang="pt-BR">Baixar .zip</span></a></span>
+      </div>
+      <div class="row" data-os="windows">
+        <div><span class="here"><span lang="en">This computer</span><span lang="pt-BR">Este computador</span></span><span class="os">Windows</span></div>
+        <span class="req"><span lang="en">Windows 10 and 11, 64-bit</span><span lang="pt-BR">Windows 10 e 11, 64 bits</span></span>
+        <span class="files"><a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-windows-x64.zip"><span lang="en">Download .zip</span><span lang="pt-BR">Baixar .zip</span></a></span>
+      </div>
+      <div class="row" data-os="linux">
+        <div><span class="here"><span lang="en">This computer</span><span lang="pt-BR">Este computador</span></span><span class="os">Linux</span></div>
+        <span class="req"><span lang="en">Ubuntu, Debian, Mint, Pop!_OS and others</span><span lang="pt-BR">Ubuntu, Debian, Mint, Pop!_OS e outras</span></span>
+        <span class="files">
+          <a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-amd64.deb">.deb amd64</a>
+          <a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.deb">.deb arm64</a>
+          <a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-x64.tar.gz">.tar.gz x64</a>
+          <a href="https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.tar.gz">.tar.gz arm64</a>
         </span>
       </div>
     </div>
 
-    <div class="curl">
-      <p data-i18n="curl">Or install from the terminal, on macOS and Linux:</p>
+    <div class="terminal">
+      <p><span lang="en">Or install from the terminal, on macOS and Linux:</span><span lang="pt-BR">Ou instale pelo terminal, no macOS e no Linux:</span></p>
       <div class="cmd">
-        <code id="cmd">curl -fsSL https://edsuuu.github.io/jbl-headphones/install.sh | sh</code>
-        <button type="button" id="copy" data-i18n="copy">Copy</button>
+        <code id="cmd">curl -fsSL https://edsuuu.github.io/OpenHeadphones/install.sh | sh</code>
+        <button type="button" id="copy"><span lang="en">Copy</span><span lang="pt-BR">Copiar</span></button>
       </div>
     </div>
-
-    <p class="note" data-i18n="note">The app updates itself. Mac .zip: the first time, open the app, then System Settings →
-      Privacy &amp; Security → Open Anyway (not needed with the terminal install).</p>
-
-    <details>
-      <summary data-i18n="models">44 supported JBL models</summary>
-      <p><span data-i18n="tested">Tested end to end: <strong>Tune Flex 2</strong>. Also:</span> Endurance Pace,
-        Endurance Peak 4, Endurance Run 3 Wireless, Endurance Zone, Junior Free, Live 680NC, Live 780NC,
-        Live Beam 3, Live Beam 4, Live Buds 4, Live Flex 3, Live Flex 4, Sense Lite, Sense Pro, Smart Tx,
-        Soundgear Clips, Tour One M3, Tune 135BT, Tune 235BT, Tune 255NC, Tune 520BT2, Tune 530BT,
-        Tune 535BT, Tune 680NC, Tune 730BT, Tune 735BT, Tune 780NC, Tune 785NC, Tune Beam 2,
-        Tune Beam 3, Tune Buds 2, Tune Buds 3, Tune Flex 3, Vibe Beam 3, Vibe Buds 2, Vibe Buds 3,
-        Vibe Flex 2, Vibe Flex 3, Wave Beam 3, Wave Buds 2, Wave Buds 3, Wave Flex 2, Wave Flex 3.</p>
-    </details>
+    <div class="notes">
+      <p><span lang="en">The app updates itself when a new version comes out.</span><span lang="pt-BR">O app se atualiza sozinho quando sai uma versão nova.</span></p>
+      <p><span lang="en">On a Mac, from the .zip: the first time, open the app, then go to System Settings, Privacy &amp;
+          Security, Open Anyway. Not needed when installing from the terminal.</span>
+        <span lang="pt-BR">No Mac, baixando o .zip: na primeira vez, abra o app e vá em Ajustes do Sistema, Privacidade e
+          Segurança, Abrir Mesmo Assim. Instalando pelo terminal não precisa.</span></p>
+    </div>
   </section>
-</main>
 
-<footer>
-  <p data-i18n="footer">Open source project under the MIT license, independent and not affiliated with JBL or Harman.
-    JBL is a trademark of Harman International Industries.</p>
-</footer>
+  <section aria-labelledby="models">
+    <h2 id="models"><span lang="en">44 JBL models</span><span lang="pt-BR">44 modelos JBL</span></h2>
+    <p class="models-intro">
+      <span lang="en">Tested end to end on the Tune Flex 2. The others use what JBL's own app knows about each
+        model: noise modes, equalizer, touches and settings.</span>
+      <span lang="pt-BR">Testado de ponta a ponta no Tune Flex 2. Os outros usam o que o próprio app da JBL sabe de
+        cada modelo: modos de ruído, equalizador, toques e ajustes.</span></p>
+    <ul class="models">
+      <li class="tested">Tune Flex 2</li>
+      <li>Endurance Pace</li><li>Endurance Peak 4</li><li>Endurance Run 3 Wireless</li><li>Endurance Zone</li>
+      <li>Junior Free</li><li>Live 680NC</li><li>Live 780NC</li><li>Live Beam 3</li><li>Live Beam 4</li>
+      <li>Live Buds 4</li><li>Live Flex 3</li><li>Live Flex 4</li><li>Sense Lite</li><li>Sense Pro</li>
+      <li>Smart Tx</li><li>Soundgear Clips</li><li>Tour One M3</li><li>Tune 135BT</li><li>Tune 235BT</li>
+      <li>Tune 255NC</li><li>Tune 520BT2</li><li>Tune 530BT</li><li>Tune 535BT</li><li>Tune 680NC</li>
+      <li>Tune 730BT</li><li>Tune 735BT</li><li>Tune 780NC</li><li>Tune 785NC</li><li>Tune Beam 2</li>
+      <li>Tune Beam 3</li><li>Tune Buds 2</li><li>Tune Buds 3</li><li>Tune Flex 3</li><li>Vibe Beam 3</li>
+      <li>Vibe Buds 2</li><li>Vibe Buds 3</li><li>Vibe Flex 2</li><li>Vibe Flex 3</li><li>Wave Beam 3</li>
+      <li>Wave Buds 2</li><li>Wave Buds 3</li><li>Wave Flex 2</li><li>Wave Flex 3</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p><span lang="en">Independent, open source project, not affiliated with JBL or Harman. JBL is a registered
+        trademark of Harman International Industries.</span>
+      <span lang="pt-BR">Projeto independente e de código aberto, sem afiliação com a JBL ou a Harman. JBL é marca
+        registrada da Harman International Industries.</span></p>
+    <p><a href="https://github.com/edsuuu/OpenHeadphones"><svg class="gh-icon" aria-hidden="true"><use href="#github"/></svg>GitHub</a> · <span lang="en">MIT license</span><span lang="pt-BR">licença MIT</span></p>
+  </footer>
+</div>
 
 <script>
-  // The page is written in English; Portuguese replaces the [data-i18n] texts (browser language or the toggle).
-  const pt = {
-    $title: "JBL Headphones para PC: app de código aberto dos fones JBL no Windows, macOS e Linux",
-    $video: "O painel do JBL Headphones com um JBL Tune Flex 2 conectado: muda para o modo ambiente e passa pelas abas Som, Toques e Ajustes",
-    $copied: "Copiado", $selected: "Selecionado",
-    source: "Código-fonte",
-    caption: "No vídeo:",
-    eyebrow: "Grátis · <b>Código aberto (MIT)</b> · Windows · macOS · Linux",
-    h1: "Seus fones JBL <span>no computador</span>",
-    lead: "Bateria, cancelamento de ruído, modo ambiente, os presets de equalizador da JBL, gestos de toque e os ajustes do fone, na bandeja do Windows e do Linux ou na barra de menus do Mac. Sem o app do celular.",
-    mine: "Para este computador",
-    mac: "macOS 15+, Apple Silicon e Intel",
-    windows: "Windows 10 e 11, x64",
-    curl: "Ou instale pelo terminal, no macOS e no Linux:",
-    copy: "Copiar",
-    note: "O app se atualiza sozinho. Mac pelo .zip: na primeira vez abra o app e vá em Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim (pelo terminal não precisa).",
-    models: "44 modelos JBL suportados",
-    tested: "Testado de ponta a ponta: <strong>Tune Flex 2</strong>. Também:",
-    footer: "Projeto de código aberto sob a licença MIT, independente e sem afiliação com a JBL ou a Harman. JBL é marca registrada da Harman International Industries.",
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const root = document.documentElement;
+
+  // EN / PT: the page carries both; the toggle (or the browser's language, in <head>) picks one
+  const titles = {
+    en: document.title,
+    pt: "OpenHeadphones: app de código aberto para fones JBL no Windows, macOS e Linux",
   };
-  const video = document.getElementById("demo");
-  const texts = [...document.querySelectorAll("[data-i18n]")];
-  const en = { $title: document.title, $video: video.getAttribute("aria-label"), $copied: "Copied", $selected: "Selected" };
-  texts.forEach((e) => (en[e.dataset.i18n] = e.innerHTML));
-  let words = en;
-
   function setLang(lang) {
-    words = lang === "pt" ? pt : en;
-    texts.forEach((e) => (e.innerHTML = words[e.dataset.i18n]));
-    document.title = words.$title;
-    video.setAttribute("aria-label", words.$video);
-    document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
-    document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
-    try { localStorage.setItem("lang", lang); } catch {}
+    root.dataset.lang = lang;
+    root.lang = lang === "pt" ? "pt-BR" : "en";
+    document.title = titles[lang];
+    document.querySelectorAll("[data-set-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.setLang === lang)));
+    try { localStorage.setItem("lang", lang); } catch (e) {}
   }
-  document.querySelectorAll(".lang button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
-  let saved = null;
-  try { saved = localStorage.getItem("lang"); } catch {}
-  setLang(saved || (/^pt\b/i.test(navigator.language) ? "pt" : "en"));
+  document.querySelectorAll("[data-set-lang]").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.setLang)));
+  setLang(root.dataset.lang || "en");
 
-  // the download for this system first and highlighted (Android reports Linux: left alone)
+  // the download for this system: highlighted, first, and behind the big button (phones: left alone)
   const ua = navigator.userAgent.toLowerCase();
   const pf = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "").toLowerCase();
   const os = /android|iphone|ipad/.test(ua) ? null
     : pf.includes("mac") ? "mac" : pf.includes("win") ? "windows" : pf.includes("linux") ? "linux" : null;
-  const mine = os && document.querySelector(`.dl[data-os="${os}"]`);
-  if (mine) { mine.classList.add("mine"); mine.parentNode.prepend(mine); }
+  const row = os && document.querySelector(`.row[data-os="${os}"]`);
+  if (row) {
+    row.classList.add("mine");
+    row.parentNode.prepend(row);
+    const get = document.getElementById("get");
+    const name = row.querySelector(".os").textContent;
+    get.innerHTML = `<span lang="en">Download for ${name}</span><span lang="pt-BR">Baixar para ${name}</span>`;
+    // Linux has several packages: the button goes to the list
+    if (os !== "linux") get.href = row.querySelector(".files a").href;
+    document.getElementById("others").innerHTML = '<span lang="en">Other systems</span><span lang="pt-BR">Outros sistemas</span>';
+  }
 
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { video.removeAttribute("autoplay"); video.pause(); video.controls = true; }
+  const video = document.getElementById("demo");
+  if (calm) { video.removeAttribute("autoplay"); video.pause(); video.controls = true; }
 
   const copy = document.getElementById("copy");
+  const copyLabel = copy.innerHTML;
   copy.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(document.getElementById("cmd").textContent); copy.textContent = words.$copied; }
-    catch { getSelection().selectAllChildren(document.getElementById("cmd")); copy.textContent = words.$selected; }
-    setTimeout(() => (copy.textContent = words.copy), 1800);
+    try {
+      await navigator.clipboard.writeText(document.getElementById("cmd").textContent);
+      copy.innerHTML = '<span lang="en">Copied</span><span lang="pt-BR">Copiado</span>';
+    } catch (e) {
+      getSelection().selectAllChildren(document.getElementById("cmd"));
+      copy.innerHTML = '<span lang="en">Selected</span><span lang="pt-BR">Selecionado</span>';
+    }
+    setTimeout(() => (copy.innerHTML = copyLabel), 1800);
   });
+
+  // ---- the equalizer the hero stands on: JBL's presets (devices/jbl-tune-flex-2/profile.toml) ----
+  const presets = {
+    "Studio": [-2, -1, -1, -0.5, 0, 0, 0, 0, 0, 0],
+    "Bass": [4, 4, 3, 2.5, 0.5, 0, 0, 0, 0, 0],
+    "Club": [2, 1.5, 1, 0, 0, 0, 0, 1, 1, 2],
+    "Extreme Bass": [4, 4.5, 4.5, 3.5, -1, 0, 0, 2, 2, 0],
+    "Vocal": [-1.5, -3, -3, 1, 3.5, 3.5, 3, 1.5, 0, -1.5],
+    "Jazz": [4, 3, 1, 2.5, -1.5, -1.5, 0, 1, 3, 4],
+  };
+  const eq = document.getElementById("eq");
+  const fill = eq.querySelector(".fill"), line = eq.querySelector(".line");
+  const knobs = [...Array(10)].map(() => eq.appendChild(Object.assign(document.createElement("span"), { className: "knob" })));
+  const x = (i) => 50 + i * 100;                       // band centers, in the 1000-wide view box
+  const y = (g) => 100 - (g / 6) * 72;                 // ±6 dB, up = louder
+  let gains = Array(10).fill(0);
+
+  function draw(g) {
+    const p = g.map((v, i) => [x(i), y(v)]);
+    // Catmull-Rom through the bands, as the app draws its curve
+    let d = `M0 ${p[0][1]} L${p[0][0]} ${p[0][1]}`;
+    for (let i = 0; i < 9; i++) {
+      const [p0, p1, p2, p3] = [p[Math.max(i - 1, 0)], p[i], p[i + 1], p[Math.min(i + 2, 9)]];
+      d += ` C${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]} ${p2[1]}`;
+    }
+    d += ` L1000 ${p[9][1]}`;
+    line.setAttribute("d", d);
+    fill.setAttribute("d", `${d} L1000 0 L0 0 Z`);
+    knobs.forEach((k, i) => { k.style.left = `${x(i) / 10}%`; k.style.top = `${(p[i][1] / 200) * 100}%`; });
+  }
+
+  // moving only when asked (a preset) and once on arrival, from flat
+  function morph(target) {
+    const from = gains.slice(), start = performance.now(), ms = calm ? 0 : 520;
+    const step = (now) => {
+      const t = ms ? Math.min((now - start) / ms, 1) : 1, e = 1 - Math.pow(1 - t, 3);
+      gains = from.map((v, i) => v + (target[i] - v) * e);
+      draw(gains);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  const group = document.querySelector(".presets");
+  for (const name of Object.keys(presets)) {
+    const b = Object.assign(document.createElement("button"), { type: "button", textContent: name });
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => pick(name));
+    group.appendChild(b);
+  }
+  function pick(name) {
+    group.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.textContent === name)));
+    morph(presets[name]);
+  }
+  draw(gains);
+  pick("Extreme Bass");
 </script>
 </body>
 </html>

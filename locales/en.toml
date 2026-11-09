@@ -1,7 +1,7 @@
 # English. Keys are grouped by table: [list] title → "list.title". {name} = placeholder.
 
 [app]
-name = "JBL Headphones"
+name = "OpenHeadphones"
 open = "Open"
 quit = "Quit"
 

@@ -1,7 +1,7 @@
 # Português do Brasil. Mesmas chaves do en.toml; o que faltar aqui sai em inglês.
 
 [app]
-name = "Fones JBL"
+name = "OpenHeadphones"
 open = "Abrir"
 quit = "Sair"
 

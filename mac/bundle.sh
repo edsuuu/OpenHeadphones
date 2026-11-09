@@ -1,11 +1,11 @@
 #!/bin/sh
-# Builds the release: dist/JBL Headphones.app (universal, ad-hoc signed, with devices/ and locales/
+# Builds the release: dist/OpenHeadphones.app (universal, ad-hoc signed, with devices/ and locales/
 # inside) and dist/jbl-headphones-mac.zip (the .app at its top level, what the app updates from).
 # Usage: mac/bundle.sh <version>   (from anywhere; CI runs it from the repo root)
 set -e
 version="${1:?usage: mac/bundle.sh <version>}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-app="$root/dist/JBL Headphones.app"
+app="$root/dist/OpenHeadphones.app"
 build="$root/mac/.build"
 rm -rf "$app" "$root/dist/jbl-headphones-mac.zip"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/pt-BR.lproj" "$build"
@@ -23,8 +23,8 @@ cat > "$app/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>JBL Headphones</string>
-    <key>CFBundleDisplayName</key><string>JBL Headphones</string>
+    <key>CFBundleName</key><string>OpenHeadphones</string>
+    <key>CFBundleDisplayName</key><string>OpenHeadphones</string>
     <key>CFBundleIdentifier</key><string>io.github.edsuuu.jbl-headphones</string>
     <key>CFBundleExecutable</key><string>jbl-headphones</string>
     <key>CFBundlePackageType</key><string>APPL</string>
@@ -41,6 +41,6 @@ echo '"NSBluetoothAlwaysUsageDescription" = "Lê a bateria e muda os ajustes dos
 
 codesign -s - --force --deep "$app"
 cd "$root/dist"
-ditto -c -k --keepParent "JBL Headphones.app" jbl-headphones-mac.zip
+ditto -c -k --keepParent "OpenHeadphones.app" jbl-headphones-mac.zip
 echo "$app"
 echo "$root/dist/jbl-headphones-mac.zip"

@@ -18,7 +18,8 @@ const SETTINGS: [&str; 5] = [
      00 16 03 00 00 00 00 1a 02 00 60 00 1b 02 00 61 00 1c 02 01 28 00 20 01 00 00 23 01 01",
     "aa 91 09 22 01 00 04 05 05 01 a1 03",
     "aa 80 09 02 c5 00 2e 00 18 01 ff ff",
-    "aa 94 11 02 4d 4d 30 32 34 35 2d 44 50 30 32 34 36 39 36 31",
+    // the serial number is a stand-in (SN0000-DEMO00000), not the real device's
+    "aa 94 11 02 53 4e 30 30 30 30 2d 44 45 4d 4f 30 30 30 30 30",
     "aa a8 05 02 01 01 02 61 aa 93 02 05 01 aa 9c 02 02 00",
 ];
 
@@ -114,8 +115,9 @@ pub fn run(dir: &str, profiles: Vec<Rc<Profile>>, s: f32) {
     }
 }
 
-/// `--demo <dir>`: the panel coming out of the menu bar, a device opened, a noise mode picked, its
-/// tabs, back and closing, at 30 frames a second and 2× (ffmpeg makes the README's GIF of them).
+/// `--demo <dir>`: the panel coming out of the menu bar, a device opened, a noise mode and a preset
+/// picked, a gesture's actions, every tab with the settings scrolled to the end, back and closing,
+/// at 30 frames a second and 2× (ffmpeg makes the site's video and the README's GIF of them).
 /// The pointer goes through the panel's own events, so hover and press look as they do for real.
 pub fn demo(dir: &str, profiles: Vec<Rc<Profile>>) {
     let fonts = Fonts::load();
@@ -126,7 +128,8 @@ pub fn demo(dir: &str, profiles: Vec<Rc<Profile>>) {
     let model = profiles.iter().find(|p| p.product_ids.contains(&0x210e)).cloned().unwrap_or_default();
     let mut u = Ui::new(profiles);
     u.tip_on_top = true;
-    u.update("fake".into(), fake_device(&model));
+    let state = fake_device(&model);
+    u.update("fake".into(), state.clone());
     u.settle();
     let mut n = 0;
     let mut pointer: Option<(f32, f32)> = None;
@@ -159,12 +162,30 @@ pub fn demo(dir: &str, profiles: Vec<Rc<Profile>>) {
     for _ in 0..10 {
         shot(&mut u, 0.0, None, false);
     }
-    go(&mut u, &mut shot, &mut pointer, (180.0, row(92.0)), 16, 20); // the device's card: its page slides in
-    go(&mut u, &mut shot, &mut pointer, (column(1.0), row(285.0)), 12, 16); // Ambient
-    go(&mut u, &mut shot, &mut pointer, (column(1.0), row(202.0)), 10, 22); // the touch tab
-    go(&mut u, &mut shot, &mut pointer, (column(3.0), row(202.0)), 10, 22); // the settings tab
-    go(&mut u, &mut shot, &mut pointer, (column(0.0), row(202.0)), 10, 12); // back to sound
-    go(&mut u, &mut shot, &mut pointer, (30.0, row(30.0)), 12, 18); // back to the list
+    go(&mut u, &mut shot, &mut pointer, (180.0, row(92.0)), 16, 24); // the device's card: its page slides in
+    go(&mut u, &mut shot, &mut pointer, (column(1.0), row(285.0)), 12, 20); // Ambient
+    go(&mut u, &mut shot, &mut pointer, (96.0, row(468.0)), 14, 0); // the Bass preset: the curve moves
+    // the fake device answers as the real one would: Ambient (picked above) and Bass
+    let bass = model.eq.as_ref().and_then(|e| e.presets.get(1)).map(|p| Some(p.gains.clone()));
+    u.update("fake".into(), DeviceState { mode: Some(NoiseMode::Ambient), eq: bass, ..state });
+    for _ in 0..30 {
+        shot(&mut u, 0.0, pointer, false);
+    }
+    go(&mut u, &mut shot, &mut pointer, (column(1.0), row(202.0)), 12, 24); // the touch tab
+    go(&mut u, &mut shot, &mut pointer, (180.0, row(322.0)), 12, 40); // a gesture: its actions slide up
+    go(&mut u, &mut shot, &mut pointer, (180.0, row(90.0)), 12, 18); // closed
+    go(&mut u, &mut shot, &mut pointer, (column(2.0), row(202.0)), 12, 30); // the find tab
+    go(&mut u, &mut shot, &mut pointer, (column(3.0), row(202.0)), 12, 24); // the settings tab
+    // every setting, scrolled slowly enough to read, a pause at the end
+    go(&mut u, &mut shot, &mut pointer, (300.0, row(420.0)), 14, 10);
+    while u.scroll_left() > 0.0 {
+        u.wheel(3.5);
+        shot(&mut u, 0.0, pointer, false);
+    }
+    for _ in 0..36 {
+        shot(&mut u, 0.0, pointer, false);
+    }
+    go(&mut u, &mut shot, &mut pointer, (30.0, row(30.0)), 14, 20); // back to the list
     u.pointer_left();
     for _ in 0..8 {
         shot(&mut u, 0.0, None, false);
