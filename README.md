@@ -45,12 +45,12 @@ curl -fsSL https://edsuuu.github.io/OpenHeadphones/install.sh | sh
 
 | System | File |
 | --- | --- |
-| **macOS 15+** (Apple Silicon and Intel) | [jbl-headphones-mac.zip](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-mac.zip) |
+| **macOS 15+** (Apple Silicon and Intel) | [OpenHeadphones.dmg](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/OpenHeadphones.dmg) |
 | **Windows 10/11** (x64) | [jbl-headphones-windows-x64.zip](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-windows-x64.zip) |
 | **Linux .deb** (Ubuntu, Debian, Mint, Pop!\_OS) | [amd64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-amd64.deb) · [arm64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.deb) |
 | **Linux .tar.gz** (any distro with BlueZ) | [x64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-x64.tar.gz) · [arm64](https://github.com/edsuuu/OpenHeadphones/releases/latest/download/jbl-headphones-linux-arm64.tar.gz) |
 
-- **macOS:** unzip and drag *OpenHeadphones.app* to Applications. The app is not notarized by
+- **macOS:** open the `.dmg` and drag *OpenHeadphones* to Applications. The app is not notarized by
   Apple: the first time, open it, then go to **System Settings → Privacy & Security → Open Anyway**.
   (The `curl` install above skips this step.)
 - **Windows:** unzip anywhere and run `jbl-headphones.exe`.
@@ -75,7 +75,8 @@ the list). The `.deb` only tells you a new version exists: install the new `.deb
 
 Baixe o arquivo do seu sistema na tabela acima, ou no Mac e no Linux rode o comando `curl`.
 
-- **Mac:** o app não é autenticado pela Apple. Na primeira vez, abra-o e depois vá em
+- **Mac:** abra o `.dmg` e arraste o *OpenHeadphones* para Aplicativos. O app não é autenticado
+  pela Apple: na primeira vez, abra-o e depois vá em
   **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**. Instalando pelo `curl`
   esse passo não é necessário.
 - **Windows:** extraia o zip e abra `jbl-headphones.exe`.

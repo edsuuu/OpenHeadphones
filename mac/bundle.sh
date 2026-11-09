@@ -1,13 +1,14 @@
 #!/bin/sh
 # Builds the release: dist/OpenHeadphones.app (universal, ad-hoc signed, with devices/ and locales/
-# inside) and dist/jbl-headphones-mac.zip (the .app at its top level, what the app updates from).
+# inside), dist/jbl-headphones-mac.zip (the .app at its top level, what the app updates from) and
+# dist/OpenHeadphones.dmg (what people download: the app and a link to drag it into Applications).
 # Usage: mac/bundle.sh <version>   (from anywhere; CI runs it from the repo root)
 set -e
 version="${1:?usage: mac/bundle.sh <version>}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 app="$root/dist/OpenHeadphones.app"
 build="$root/mac/.build"
-rm -rf "$app" "$root/dist/jbl-headphones-mac.zip"
+rm -rf "$app" "$root/dist/jbl-headphones-mac.zip" "$root/dist/OpenHeadphones.dmg"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/pt-BR.lproj" "$build"
 
 for arch in arm64 x86_64; do
@@ -45,5 +46,13 @@ echo '"NSBluetoothAlwaysUsageDescription" = "Lê a bateria e muda os ajustes dos
 codesign -s - --force --deep "$app"
 cd "$root/dist"
 ditto -c -k --keepParent "OpenHeadphones.app" jbl-headphones-mac.zip
+
+staging="$root/dist/dmg"
+rm -rf "$staging" && mkdir -p "$staging"
+cp -R "$app" "$staging/"
+ln -s /Applications "$staging/Applications"
+hdiutil create -quiet -volname OpenHeadphones -srcfolder "$staging" -fs HFS+ -format UDZO OpenHeadphones.dmg
+rm -rf "$staging"
 echo "$app"
 echo "$root/dist/jbl-headphones-mac.zip"
+echo "$root/dist/OpenHeadphones.dmg"
